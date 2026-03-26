@@ -6,6 +6,7 @@ import { formatDate, formatDuration } from '@/lib/time-utils'
 import { useTimeRecords } from '@/lib/time-records-context'
 import SortControls, { SortField, SortDir } from './SortControls'
 import { Clock, LogIn, LogOut, Timer } from 'lucide-react'
+import ScheduleCard from './ScheduleCard'
 
 const MONTHS = [
   'January','February','March','April','May','June',
@@ -40,6 +41,8 @@ export default function TimelineList() {
 
   return (
     <div className="space-y-4">
+      <ScheduleCard />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs text-white/35">Filter:</span>

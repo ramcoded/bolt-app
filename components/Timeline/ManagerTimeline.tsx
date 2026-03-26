@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { ChevronDown, Clock, LogIn, LogOut, Timer, User, RefreshCw } from 'lucide-react'
+import ManagerScheduleEditor from './ManagerScheduleEditor'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatDuration } from '@/lib/time-utils'
 import type { TeamMember } from '@/lib/mock-data'
@@ -155,6 +156,11 @@ export default function ManagerTimeline() {
           </div>
         )}
       </div>
+
+      {/* Schedule editor — shown when a member is selected */}
+      {selected && (
+        <ManagerScheduleEditor userId={selected.id} memberName={selected.name} />
+      )}
 
       {/* Filters + record count */}
       {selected && (
