@@ -4,6 +4,7 @@ import { AuthProvider } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
 import { createClient } from '@/lib/supabase/server'
 import type { Profile } from '@/lib/auth-context'
+import NextTopLoader from 'nextjs-toploader'
 
 export const metadata: Metadata = {
   title: 'BOLT',
@@ -37,6 +38,14 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
+        <NextTopLoader
+          color="#6366f1"
+          height={2}
+          showSpinner={false}
+          easing="ease"
+          speed={200}
+          shadow="0 0 10px #6366f1, 0 0 5px #4f46e5"
+        />
         <AuthProvider initialUser={user} initialProfile={profile}>
           <AppShell>{children}</AppShell>
         </AuthProvider>
