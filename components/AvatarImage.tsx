@@ -1,9 +1,10 @@
 interface AvatarImageProps {
   src?: string | null
   alt?: string
+  fallback?: string
 }
 
-export default function AvatarImage({ src, alt = '' }: AvatarImageProps) {
+export default function AvatarImage({ src, alt = '', fallback = '?' }: AvatarImageProps) {
   if (src?.startsWith('http')) {
     return (
       <img
@@ -13,5 +14,5 @@ export default function AvatarImage({ src, alt = '' }: AvatarImageProps) {
       />
     )
   }
-  return <>{src}</>
+  return <>{src || fallback}</>
 }

@@ -6,6 +6,7 @@ import ManagerScheduleEditor from './ManagerScheduleEditor'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatDuration } from '@/lib/time-utils'
 import type { TeamMember } from '@/lib/mock-data'
+import AvatarImage from '@/components/AvatarImage'
 
 type TimeRecord = {
   id: string
@@ -94,10 +95,10 @@ export default function ManagerTimeline() {
             {selected ? (
               <div className="flex items-center gap-2">
                 <div
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white"
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-bold text-white overflow-hidden"
                   style={{ background: 'rgba(79,70,229,0.35)' }}
                 >
-                  {selected.avatar}
+                  <AvatarImage src={selected.avatar} alt={selected.name} fallback={selected.name?.slice(0,2).toUpperCase() ?? '??'} />
                 </div>
                 <span className="text-white font-medium">{selected.name}</span>
                 {activeRecord && (
@@ -136,10 +137,10 @@ export default function ManagerTimeline() {
                 style={selected?.id === m.id ? { background: 'rgba(79,70,229,0.12)' } : {}}
               >
                 <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
                   style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}
                 >
-                  {m.avatar}
+                  <AvatarImage src={m.avatar} alt={m.name} fallback={m.name?.slice(0,2).toUpperCase() ?? '??'} />
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-medium text-white truncate">{m.name}</p>

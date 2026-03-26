@@ -2,14 +2,17 @@
 
 import { useState } from 'react'
 import { User, Clock } from 'lucide-react'
+import { useAuth } from '@/lib/auth-context'
 import ReminderBanner from './ReminderBanner'
 import TimelineList   from './TimelineList'
 import ManagerTimeline from './ManagerTimeline'
+import ManagerScheduleEditor from './ManagerScheduleEditor'
 
 type Tab = 'mine' | 'team'
 
 export default function ManagerTimelineTabs() {
   const [tab, setTab] = useState<Tab>('mine')
+  const { profile }   = useAuth()
 
   return (
     <div className="space-y-5">
@@ -24,6 +27,13 @@ export default function ManagerTimelineTabs() {
 
       {tab === 'mine' ? (
         <>
+          {profile && (
+            <ManagerScheduleEditor
+              key={profile.id}
+              userId={profile.id}
+              memberName="My Schedule"
+            />
+          )}
           <ReminderBanner />
           <TimelineList />
         </>

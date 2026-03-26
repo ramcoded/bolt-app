@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
+import AvatarImage from '@/components/AvatarImage'
 
 type EmployeeStat = {
   id: string
@@ -237,10 +238,10 @@ export default function ManagerDashboard() {
             Refresh
           </button>
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
             style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 10px rgba(79,70,229,0.4)' }}
           >
-            {profile?.avatar ?? 'M'}
+            <AvatarImage src={profile?.avatar} alt={profile?.name ?? ''} fallback={profile?.name?.slice(0,1) ?? 'M'} />
           </div>
         </div>
       </div>
@@ -309,7 +310,7 @@ export default function ManagerDashboard() {
                   {/* Avatar + status dot */}
                   <div className="relative flex-shrink-0">
                     <div
-                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
+                      className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white overflow-hidden"
                       style={{
                         background: emp.isClockedIn
                           ? 'linear-gradient(135deg, rgba(79,70,229,0.5) 0%, rgba(99,102,241,0.4) 100%)'
@@ -317,7 +318,7 @@ export default function ManagerDashboard() {
                         border: `1px solid ${emp.isClockedIn ? 'rgba(99,102,241,0.5)' : 'rgba(79,70,229,0.2)'}`,
                       }}
                     >
-                      {emp.avatar}
+                      <AvatarImage src={emp.avatar} alt={emp.name} fallback={emp.name?.slice(0,2).toUpperCase() ?? '??'} />
                     </div>
                     <span
                       className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"
@@ -428,7 +429,7 @@ export default function ManagerDashboard() {
                 >
                   {/* Avatar */}
                   <div
-                    className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
+                    className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden"
                     style={{
                       background: member.role === 'manager'
                         ? 'linear-gradient(135deg, rgba(139,92,246,0.5) 0%, rgba(167,139,250,0.3) 100%)'
@@ -436,7 +437,7 @@ export default function ManagerDashboard() {
                       border: `1px solid ${member.role === 'manager' ? 'rgba(139,92,246,0.5)' : 'rgba(79,70,229,0.2)'}`,
                     }}
                   >
-                    {member.avatar}
+                    <AvatarImage src={member.avatar} alt={member.name} fallback={member.name?.slice(0,2).toUpperCase() ?? '??'} />
                   </div>
 
                   {/* Name + dept */}

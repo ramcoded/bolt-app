@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ArrowLeft, Zap, CalendarDays, User } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import ManagerScheduleEditor from '@/components/Timeline/ManagerScheduleEditor'
+import AvatarImage from '@/components/AvatarImage'
 
 type Member = {
   id: string
@@ -73,10 +74,10 @@ export default function SchedulesPage() {
         </div>
 
         <div
-          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
           style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 10px rgba(79,70,229,0.4)' }}
         >
-          {profile?.avatar ?? 'M'}
+          <AvatarImage src={profile?.avatar} alt={profile?.name ?? ''} fallback={profile?.name?.slice(0,1) ?? 'M'} />
         </div>
       </div>
 
@@ -128,7 +129,7 @@ export default function SchedulesPage() {
                         style={isSelected ? { background: 'rgba(79,70,229,0.12)' } : {}}
                       >
                         <div
-                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
                           style={{
                             background: m.role === 'manager'
                               ? 'linear-gradient(135deg, rgba(139,92,246,0.5), rgba(167,139,250,0.3))'
@@ -136,7 +137,7 @@ export default function SchedulesPage() {
                             border: `1px solid ${m.role === 'manager' ? 'rgba(139,92,246,0.4)' : 'rgba(79,70,229,0.25)'}`,
                           }}
                         >
-                          {m.avatar}
+                          <AvatarImage src={m.avatar} alt={m.name} fallback={m.name?.slice(0,2).toUpperCase() ?? '??'} />
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-white truncate">
