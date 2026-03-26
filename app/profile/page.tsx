@@ -7,32 +7,41 @@ import { useTimeRecords } from '@/lib/time-records-context'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate, formatDuration } from '@/lib/time-utils'
 import AvatarImage from '@/components/AvatarImage'
+import CropModal from '@/components/Profile/CropModal'
 
 export default function ProfilePage() {
   const { records } = useTimeRecords()
   const { user, profile, setProfile } = useAuth()
+  const [cropSrc,   setCropSrc]   = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
-  const completed    = records.filter((r) => r.duration !== null)
-  const totalMins    = completed.reduce((s, r) => s + (r.duration ?? 0), 0)
-  const avgMins      = completed.length ? Math.round(totalMins / completed.length) : 0
-  const recentFive   = records.slice(0, 5)
+  const completed  = records.filter((r) => r.duration !== null)
+  const totalMins  = completed.reduce((s, r) => s + (r.duration ?? 0), 0)
+  const avgMins    = completed.length ? Math.round(totalMins / completed.length) : 0
+  const recentFive = records.slice(0, 5)
 
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Step 1: file selected → open crop modal
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file || !profile) return
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setCropSrc(reader.result as string)
+    reader.readAsDataURL(file)
+    e.target.value = ''
+  }
+
+  // Step 2: crop confirmed → upload blob
+  const handleCropSave = async (blob: Blob) => {
+    if (!profile) return
     setUploading(true)
     const form = new FormData()
-    form.append('file', file)
-    const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
+    form.append('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
+    const res  = await fetch('/api/profile/avatar', { method: 'POST', body: form })
     const data = await res.json()
-    if (data.avatarUrl) {
-      setProfile({ ...profile, avatar: data.avatarUrl })
-    }
+    if (data.avatarUrl) setProfile({ ...profile, avatar: data.avatarUrl })
     setUploading(false)
-    // Reset so same file can be re-selected
-    e.target.value = ''
+    setCropSrc(null)
   }
 
   return (
@@ -82,7 +91,7 @@ export default function ProfilePage() {
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={handleAvatarChange}
+                onChange={handleFileSelect}
               />
             </div>
             <Link href="/" className="btn-ghost text-sm">← Dashboard</Link>
@@ -119,6 +128,16 @@ export default function ProfilePage() {
           </div>
         ))}
       </div>
+
+      {/* Crop modal */}
+      {cropSrc && (
+        <CropModal
+          imageSrc={cropSrc}
+          saving={uploading}
+          onSave={handleCropSave}
+          onCancel={() => setCropSrc(null)}
+        />
+      )}
 
       {/* Recent activity */}
       <div className="glass-card p-5">

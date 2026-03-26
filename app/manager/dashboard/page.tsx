@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   Users, Clock, TrendingUp, Zap,
   ArrowLeft, RefreshCw, CheckCircle2, Circle,
-  UserPlus, X, Shield, User, ChevronDown, Loader2, Trash2,
+  UserPlus, X, Shield, User, ChevronDown, Loader2, Trash2, CalendarDays,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
@@ -221,6 +221,13 @@ export default function ManagerDashboard() {
           <span className="text-xs text-white/25 hidden sm:block">
             {lastRefresh ? `Refreshed ${lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}` : 'Loading…'}
           </span>
+          <Link
+            href="/manager/schedules"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/50 hover:text-white hover:bg-white/8 transition-all"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            Schedules
+          </Link>
           <button
             onClick={load}
             disabled={loading}
