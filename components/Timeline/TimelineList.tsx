@@ -1,16 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { timeRecords, TimeRecord } from '@/lib/mock-data'
+import { TimeRecord } from '@/lib/mock-data'
 import { formatDate, formatDuration } from '@/lib/time-utils'
+import { useTimeRecords } from '@/lib/time-records-context'
 import SortControls, { SortField, SortDir } from './SortControls'
 import { Clock, LogIn, LogOut, Timer } from 'lucide-react'
 
 export default function TimelineList() {
   const [field, setField] = useState<SortField>('date')
   const [dir,   setDir]   = useState<SortDir>('desc')
+  const { records } = useTimeRecords()
 
-  const sorted = [...timeRecords].sort((a, b) => {
+  const sorted = [...records].sort((a, b) => {
     let cmp = 0
     if (field === 'date') {
       cmp = a.date.localeCompare(b.date)
@@ -23,26 +25,30 @@ export default function TimelineList() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-sm text-white/35">{timeRecords.length} records</p>
+        <p className="text-sm text-white/35">{records.length} records</p>
         <SortControls field={field} dir={dir} onChange={(f, d) => { setField(f); setDir(d) }} />
       </div>
 
       <div className="space-y-2">
-        {sorted.map((record) => (
-          <TimelineRow key={record.id} record={record} />
+        {sorted.map((record, i) => (
+          <TimelineRow key={record.id} record={record} index={i} />
         ))}
       </div>
     </div>
   )
 }
 
-function TimelineRow({ record }: { record: TimeRecord }) {
+function TimelineRow({ record, index }: { record: TimeRecord; index: number }) {
   const isActive = record.timeOut === null
 
   return (
     <div
-      className="glass-card p-4 border-l-2 transition-all duration-200 hover:bg-white/4"
-      style={{ borderLeftColor: isActive ? '#4ade80' : '#4f46e5' }}
+      className="glass-card p-4 border-l-2 transition-all duration-200 hover:bg-white/4 animate-fade-in"
+      style={{
+        borderLeftColor:    isActive ? '#4ade80' : '#4f46e5',
+        animationDelay:     `${index * 50}ms`,
+        animationFillMode:  'both',
+      }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-[140px]">

@@ -7,6 +7,7 @@ import { Menu, X, Zap } from 'lucide-react'
 import LiveClock from './LiveClock'
 import ProfileDropdown from './Profile/ProfileDropdown'
 import ConfirmTimeModal from './ConfirmTimeModal'
+import { useTimeRecords } from '@/lib/time-records-context'
 
 const navLinks = [
   { href: '/',         label: 'Dashboard' },
@@ -18,12 +19,12 @@ const navLinks = [
 export default function NavBar() {
   const pathname  = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [timedIn,    setTimedIn]    = useState(false)
   const [modal,      setModal]      = useState<'in' | 'out' | null>(null)
+  const { timedIn, clockIn, clockOut } = useTimeRecords()
 
   const handleConfirm = () => {
-    if (modal === 'in')  setTimedIn(true)
-    if (modal === 'out') setTimedIn(false)
+    if (modal === 'in')  clockIn()
+    if (modal === 'out') clockOut()
     setModal(null)
   }
 

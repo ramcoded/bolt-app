@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { Clock, LogIn, Timer } from 'lucide-react'
-import { formatDate, formatDuration } from '@/lib/time-utils'
-import { timeRecords } from '@/lib/mock-data'
+import { formatDuration, toDateStr } from '@/lib/time-utils'
+import { useTimeRecords } from '@/lib/time-records-context'
 
 const ME = {
   name:   'Roy Martinez',
@@ -14,20 +14,20 @@ const ME = {
 }
 
 export default function ProfileCard() {
-  const [now, setNow] = useState(new Date())
+  const [now, setNow] = useState<Date | null>(null)
+  const { records } = useTimeRecords()
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 1000)
+    const tick = () => setNow(new Date())
+    tick()
+    const id = setInterval(tick, 1000)
     return () => clearInterval(id)
   }, [])
 
-  const todayRecord = timeRecords.find((r) => r.date === now.toISOString().split('T')[0])
-  const thisWeekTotal = timeRecords
-    .filter((r) => r.duration !== null)
-    .reduce((sum, r) => sum + (r.duration ?? 0), 0)
-
-  const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
-  const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+  const todayRecord   = now ? records.find((r) => r.date === toDateStr(now)) : undefined
+  const thisWeekTotal = records.filter((r) => r.duration !== null).reduce((sum, r) => sum + (r.duration ?? 0), 0)
+  const timeStr = now ? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '00:00:00'
+  const dateStr = now ? now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u00a0'
 
   return (
     <div className="glass-card p-5 flex flex-col gap-4">

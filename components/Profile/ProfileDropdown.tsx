@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { User, Settings, LogOut, ChevronDown } from 'lucide-react'
+import Link from 'next/link'
+import { User, LogOut, ChevronDown } from 'lucide-react'
 
 const ME = {
   name:   'Roy Martinez',
@@ -58,14 +59,11 @@ export default function ProfileDropdown() {
 
           {/* Menu items */}
           <div className="py-1">
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/6 transition-colors text-left">
+            <Link href="/profile" onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/6 transition-colors">
               <User className="w-4 h-4" />
               View Profile
-            </button>
-            <button className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/6 transition-colors text-left">
-              <Settings className="w-4 h-4" />
-              Settings
-            </button>
+            </Link>
           </div>
 
           <div className="border-t border-white/8 py-1">
