@@ -3,8 +3,21 @@
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
-import { weeklyHours } from '@/lib/mock-data'
 import { TrendingUp } from 'lucide-react'
+import { useTimeRecords } from '@/lib/time-records-context'
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function buildWeeklyHours(records: { date: string; duration: number | null }[]) {
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (6 - i))
+    const dateStr = d.toISOString().split('T')[0]
+    const rec = records.find((r) => r.date === dateStr)
+    const hours = rec?.duration ? Math.round((rec.duration / 60) * 100) / 100 : 0
+    return { day: DAY_LABELS[d.getDay()], hours }
+  })
+}
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
@@ -19,7 +32,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 export default function TimelineGraphCard() {
-  const totalHours = weeklyHours.reduce((s, d) => s + d.hours, 0).toFixed(1)
+  const { records } = useTimeRecords()
+  const weeklyHours = buildWeeklyHours(records)
+  const totalHours  = weeklyHours.reduce((s, d) => s + d.hours, 0).toFixed(1)
 
   return (
     <div className="glass-card p-5 h-full">

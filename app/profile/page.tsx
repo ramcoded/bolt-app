@@ -3,19 +3,12 @@
 import Link from 'next/link'
 import { Mail, Briefcase, Calendar, Clock, TrendingUp, LogIn } from 'lucide-react'
 import { useTimeRecords } from '@/lib/time-records-context'
+import { useAuth } from '@/lib/auth-context'
 import { formatDate, formatDuration } from '@/lib/time-utils'
-
-const ME = {
-  name:       'Roy Martinez',
-  role:       'Frontend Developer',
-  avatar:     'RM',
-  email:      'roy.martinez@bolt.team',
-  department: 'Engineering',
-  joined:     'January 2025',
-}
 
 export default function ProfilePage() {
   const { records } = useTimeRecords()
+  const { user, profile } = useAuth()
 
   const completed    = records.filter((r) => r.duration !== null)
   const totalMins    = completed.reduce((s, r) => s + (r.duration ?? 0), 0)
@@ -49,23 +42,20 @@ export default function ProfilePage() {
                 boxShadow:   '0 0 28px rgba(79,70,229,0.55)',
               }}
             >
-              {ME.avatar}
+              {profile?.avatar ?? '??'}
             </div>
             <Link href="/" className="btn-ghost text-sm">← Dashboard</Link>
           </div>
 
-          <h1 className="text-2xl font-bold text-white">{ME.name}</h1>
-          <p className="text-sm text-white/50 mt-0.5">{ME.role} · {ME.department}</p>
+          <h1 className="text-2xl font-bold text-white">{profile?.name ?? '—'}</h1>
+          <p className="text-sm text-white/50 mt-0.5">{profile?.role} · {profile?.department}</p>
 
           <div className="flex flex-wrap items-center gap-5 mt-3">
             <span className="flex items-center gap-1.5 text-xs text-white/40">
-              <Mail className="w-3.5 h-3.5" />{ME.email}
+              <Mail className="w-3.5 h-3.5" />{user?.email ?? '—'}
             </span>
             <span className="flex items-center gap-1.5 text-xs text-white/40">
-              <Briefcase className="w-3.5 h-3.5" />{ME.department}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-white/40">
-              <Calendar className="w-3.5 h-3.5" />Joined {ME.joined}
+              <Briefcase className="w-3.5 h-3.5" />{profile?.department ?? '—'}
             </span>
           </div>
         </div>

@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Menu, X, Zap } from 'lucide-react'
 import LiveClock from './LiveClock'
 import ProfileDropdown from './Profile/ProfileDropdown'
+import NotificationDropdown from './NotificationDropdown'
 import ConfirmTimeModal from './ConfirmTimeModal'
 import { useTimeRecords } from '@/lib/time-records-context'
 
@@ -13,6 +14,7 @@ const navLinks = [
   { href: '/',         label: 'Dashboard' },
   { href: '/timeline', label: 'Timeline'  },
   { href: '/calendar', label: 'Calendar'  },
+  { href: '/tasks',    label: 'Tasks'     },
   { href: '/team',     label: 'Team'      },
 ]
 
@@ -112,6 +114,9 @@ export default function NavBar() {
                   Time Out
                 </button>
               </div>
+
+              {/* Notifications */}
+              <NotificationDropdown />
 
               {/* Profile */}
               <ProfileDropdown />

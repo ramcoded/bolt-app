@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   addDays, isSameMonth, isToday as isTodayFn, addMonths, subMonths,
 } from 'date-fns'
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react'
-import { calendarTasks, calendarNotes as initialNotes, CalendarNote } from '@/lib/mock-data'
+import type { CalendarTask, CalendarNote } from '@/lib/mock-data'
 import { toDateStr } from '@/lib/time-utils'
 import DayCell from './DayCell'
 
@@ -14,13 +14,24 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function GlassCalendar() {
   const [current, setCurrent] = useState(new Date())
-  const [notes,   setNotes]   = useState<CalendarNote[]>(initialNotes)
+  const [tasks,   setTasks]   = useState<CalendarTask[]>([])
+  const [notes,   setNotes]   = useState<CalendarNote[]>([])
 
-  const handleNoteChange = (dateStr: string, content: string) => {
+  useEffect(() => {
+    fetch('/api/tasks').then((r) => r.json()).then(setTasks)
+    fetch('/api/calendar-notes').then((r) => r.json()).then(setNotes)
+  }, [])
+
+  const handleNoteChange = async (dateStr: string, content: string) => {
     setNotes((prev) => {
       const exists = prev.find((n) => n.date === dateStr)
       if (exists) return prev.map((n) => (n.date === dateStr ? { ...n, content } : n))
       return [...prev, { date: dateStr, content }]
+    })
+    await fetch('/api/calendar-notes', {
+      method:  'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ date: dateStr, content }),
     })
   }
 
@@ -33,7 +44,7 @@ export default function GlassCalendar() {
   let d = gridStart
   while (d <= gridEnd) { days.push(d); d = addDays(d, 1) }
 
-  const tasksForDate = (dateStr: string) => calendarTasks.filter((t) => t.date === dateStr)
+  const tasksForDate = (dateStr: string) => tasks.filter((t) => t.date === dateStr)
   const noteForDate  = (dateStr: string) => notes.find((n) => n.date === dateStr)?.content ?? ''
 
   return (

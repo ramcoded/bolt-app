@@ -58,9 +58,10 @@ export default function DayCell({ date, tasks, note, isToday, isCurrentMonth, on
             key={task.id}
             className="text-[10px] px-1.5 py-0.5 rounded-md truncate font-medium cursor-default"
             style={{
-              backgroundColor: task.color + '25',
-              color: task.color,
-              border: `1px solid ${task.color}40`,
+              backgroundColor: task.completed ? 'rgba(255,255,255,0.04)' : task.color + '25',
+              color:           task.completed ? 'rgba(255,255,255,0.25)'  : task.color,
+              border:          task.completed ? '1px solid rgba(255,255,255,0.08)' : `1px solid ${task.color}40`,
+              textDecoration:  task.completed ? 'line-through' : 'none',
             }}
             onMouseEnter={(e) => handleTaskHover(task, e)}
             onMouseLeave={() => setHoverTask(null)}
@@ -102,11 +103,17 @@ export default function DayCell({ date, tasks, note, isToday, isCurrentMonth, on
           <div className="w-2 h-2 rounded-full mb-1.5" style={{ backgroundColor: hoverTask.color }} />
           <p className="font-semibold text-white mb-1">{hoverTask.title}</p>
           <p className="text-white/45 leading-relaxed">{hoverTask.description}</p>
-          <div className="mt-2">
+          <div className="mt-2 flex items-center gap-1.5 flex-wrap">
             <span className="px-1.5 py-0.5 rounded text-[10px] font-medium capitalize"
               style={{ background: hoverTask.color + '25', color: hoverTask.color }}>
               {hoverTask.priority}
             </span>
+            {hoverTask.completed && (
+              <span className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                style={{ background: 'rgba(34,197,94,0.15)', color: '#4ade80' }}>
+                Completed
+              </span>
+            )}
           </div>
         </div>
       )}

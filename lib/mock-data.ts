@@ -22,6 +22,7 @@ export type CalendarTask = {
   description: string
   color: string
   priority: 'low' | 'medium' | 'high'
+  completed?: boolean
 }
 
 export type CalendarNote = {

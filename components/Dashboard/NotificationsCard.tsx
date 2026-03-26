@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { notifications as initialNotifs } from '@/lib/mock-data'
+import { useEffect, useState } from 'react'
 import { Bell, CheckCheck, AlertCircle, ClipboardList } from 'lucide-react'
+import type { Notification } from '@/lib/mock-data'
 
 const typeIcon = (type: string) => {
   if (type === 'task')     return <ClipboardList className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
@@ -11,12 +11,26 @@ const typeIcon = (type: string) => {
 }
 
 export default function NotificationsCard() {
-  const [notifs, setNotifs] = useState(initialNotifs)
+  const [notifs, setNotifs] = useState<Notification[]>([])
+
+  useEffect(() => {
+    fetch('/api/notifications')
+      .then((r) => r.json())
+      .then(setNotifs)
+  }, [])
+
   const unread = notifs.filter((n) => !n.read).length
 
-  const markAll = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
-  const markOne = (id: string) =>
+  const markOne = async (id: string) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
+    await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+  }
+
+  const markAll = async () => {
+    const unreadIds = notifs.filter((n) => !n.read).map((n) => n.id)
+    setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
+    await Promise.all(unreadIds.map((id) => fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })))
+  }
 
   return (
     <div className="glass-card p-5 h-full">
@@ -39,6 +53,9 @@ export default function NotificationsCard() {
       </div>
 
       <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+        {notifs.length === 0 && (
+          <p className="text-xs text-white/25 text-center py-6">No notifications</p>
+        )}
         {notifs.map((n) => (
           <button
             key={n.id}

@@ -4,18 +4,16 @@ import { useEffect, useState } from 'react'
 import { Clock, LogIn, Timer } from 'lucide-react'
 import { formatDuration, toDateStr } from '@/lib/time-utils'
 import { useTimeRecords } from '@/lib/time-records-context'
-
-const ME = {
-  name:   'Roy Martinez',
-  role:   'Frontend Developer',
-  avatar: 'RM',
-  email:  'roy.martinez@bolt.team',
-  department: 'Engineering',
-}
+import { useAuth } from '@/lib/auth-context'
 
 export default function ProfileCard() {
   const [now, setNow] = useState<Date | null>(null)
   const { records } = useTimeRecords()
+  const { profile } = useAuth()
+
+  const name   = profile?.name   ?? 'User'
+  const role   = profile?.role   ?? 'employee'
+  const avatar = profile?.avatar ?? name.slice(0, 2).toUpperCase()
 
   useEffect(() => {
     const tick = () => setNow(new Date())
@@ -40,12 +38,14 @@ export default function ProfileCard() {
             boxShadow: '0 0 20px rgba(79,70,229,0.45)',
           }}
         >
-          {ME.avatar}
+          {avatar}
         </div>
         <div className="flex-1 min-w-0">
-          <h2 className="text-base font-bold text-white">{ME.name}</h2>
-          <p className="text-xs text-white/50 mt-0.5">{ME.role}</p>
-          <p className="text-[11px] text-white/25 mt-0.5">{ME.department}</p>
+          <h2 className="text-base font-bold text-white">{name}</h2>
+          <p className="text-xs text-white/50 mt-0.5 capitalize">{role}</p>
+          {profile?.department && (
+            <p className="text-[11px] text-white/25 mt-0.5">{profile.department}</p>
+          )}
         </div>
 
         {/* Status badge */}

@@ -1,29 +1,31 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { calendarTasks } from '@/lib/mock-data'
 import { Calendar } from 'lucide-react'
 import { formatDate } from '@/lib/time-utils'
+import type { CalendarTask } from '@/lib/mock-data'
+
+const priorityBadge = (p: string) => {
+  if (p === 'high')   return { bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.25)' }
+  if (p === 'medium') return { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: 'rgba(245,158,11,0.25)' }
+  return { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.10)' }
+}
 
 export default function ReminderCard() {
-  const [now, setNow] = useState(new Date())
+  const [tasks, setTasks] = useState<CalendarTask[]>([])
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000)
-    return () => clearInterval(id)
+    fetch('/api/tasks')
+      .then((r) => r.json())
+      .then((data: CalendarTask[]) => {
+        const todayStr = new Date().toISOString().split('T')[0]
+        const upcoming = (Array.isArray(data) ? data : [])
+          .filter((t) => t.date && t.date >= todayStr)
+          .sort((a, b) => a.date.localeCompare(b.date))
+          .slice(0, 3)
+        setTasks(upcoming)
+      })
   }, [])
-
-  const todayStr = now.toISOString().split('T')[0]
-  const upcoming = calendarTasks
-    .filter((t) => t.date >= todayStr)
-    .sort((a, b) => a.date.localeCompare(b.date))
-    .slice(0, 3)
-
-  const priorityBadge = (p: string) => {
-    if (p === 'high')   return { bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.25)' }
-    if (p === 'medium') return { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: 'rgba(245,158,11,0.25)' }
-    return { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.10)' }
-  }
 
   return (
     <div className="glass-card p-5 h-full">
@@ -32,11 +34,11 @@ export default function ReminderCard() {
         <h2 className="text-sm font-semibold text-white">Upcoming</h2>
       </div>
 
-      {upcoming.length === 0 ? (
+      {tasks.length === 0 ? (
         <p className="text-xs text-white/25 text-center py-6">No upcoming tasks</p>
       ) : (
         <div className="space-y-2">
-          {upcoming.map((task) => {
+          {tasks.map((task) => {
             const badge = priorityBadge(task.priority)
             return (
               <div key={task.id}

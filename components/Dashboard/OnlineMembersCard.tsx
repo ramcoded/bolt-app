@@ -1,8 +1,19 @@
-import { teamMembers } from '@/lib/mock-data'
+'use client'
+
+import { useEffect, useState } from 'react'
+import type { TeamMember } from '@/lib/mock-data'
 
 export default function OnlineMembersCard() {
-  const online  = teamMembers.filter((m) => m.online)
-  const offline = teamMembers.filter((m) => !m.online)
+  const [members, setMembers] = useState<TeamMember[]>([])
+
+  useEffect(() => {
+    fetch('/api/team')
+      .then((r) => r.json())
+      .then(setMembers)
+  }, [])
+
+  const online  = members.filter((m) => m.online)
+  const offline = members.filter((m) => !m.online)
 
   return (
     <div className="glass-card p-5 h-full">
@@ -13,7 +24,7 @@ export default function OnlineMembersCard() {
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs font-medium text-green-400">{online.length}/{teamMembers.length}</span>
+          <span className="text-xs font-medium text-green-400">{online.length}/{members.length}</span>
         </div>
       </div>
 
@@ -57,6 +68,10 @@ export default function OnlineMembersCard() {
               </div>
             ))}
           </>
+        )}
+
+        {members.length === 0 && (
+          <p className="text-xs text-white/25 text-center py-4">Loading team…</p>
         )}
       </div>
     </div>

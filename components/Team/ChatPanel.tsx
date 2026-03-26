@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { X, Send, ArrowLeft } from 'lucide-react'
-import { TeamMember, ChatMessage, mockConversations } from '@/lib/mock-data'
+import type { TeamMember, ChatMessage } from '@/lib/mock-data'
+import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/lib/auth-context'
 
 interface ChatPanelProps {
   member: TeamMember
@@ -10,23 +12,69 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ member, onClose }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>(mockConversations[member.id] ?? [])
-  const [input,    setInput]    = useState('')
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput]       = useState('')
+  const [loading, setLoading]   = useState(true)
+  const bottomRef               = useRef<HTMLDivElement>(null)
+  const channelRef              = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const { profile } = useAuth()
 
-  const send = () => {
+  useEffect(() => {
+    fetch(`/api/messages?with=${member.id}`)
+      .then((r) => r.json())
+      .then((msgs) => { setMessages(msgs); setLoading(false) })
+  }, [member.id])
+
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // Realtime subscription for incoming messages
+  useEffect(() => {
+    if (!profile?.id) return
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`panel-${profile.id}-${member.id}`)
+      .on(
+        'postgres_changes' as any,
+        {
+          event:  'INSERT',
+          schema: 'public',
+          table:  'messages',
+          filter: `receiver_id=eq.${profile.id}`,
+        },
+        (payload: any) => {
+          if (payload.new.sender_id !== member.id) return
+          const msg: ChatMessage = {
+            id:        payload.new.id,
+            senderId:  payload.new.sender_id,
+            content:   payload.new.content,
+            timestamp: new Date(payload.new.created_at).toLocaleTimeString('en-US', {
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            }),
+            read: false,
+          }
+          setMessages((prev) => [...prev, msg])
+        }
+      )
+      .subscribe()
+
+    channelRef.current = channel
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, member.id])
+
+  const send = async () => {
     const text = input.trim()
     if (!text) return
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(),
-        senderId: 'me',
-        content: text,
-        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
-        read: true,
-      },
-    ])
     setInput('')
+    const res = await fetch('/api/messages', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ receiver_id: member.id, content: text }),
+    })
+    const msg: ChatMessage = await res.json()
+    setMessages((prev) => [...prev, msg])
   }
 
   return (
@@ -51,7 +99,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">{member.name}</p>
           <p className="text-xs" style={{ color: member.online ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
-            {member.online ? 'Online' : `Last seen ${member.lastSeen}`}
+            {member.online ? 'Online' : `Last seen ${member.lastSeen ?? 'a while ago'}`}
           </p>
         </div>
         <button onClick={onClose}
@@ -62,7 +110,10 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {messages.length === 0 && (
+        {loading && (
+          <p className="text-xs text-white/25 text-center mt-8">Loading…</p>
+        )}
+        {!loading && messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
               style={{ background: 'rgba(79,70,229,0.15)', border: '1px solid rgba(79,70,229,0.25)' }}>
@@ -94,6 +145,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
             </div>
           )
         })}
+        <div ref={bottomRef} />
       </div>
 
       {/* Input */}

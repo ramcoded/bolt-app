@@ -1,19 +1,26 @@
 'use client'
 
-import { useState } from 'react'
-import { teamMembers, TeamMember } from '@/lib/mock-data'
+import { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
+import type { TeamMember } from '@/lib/mock-data'
 import ChatPanel from './ChatPanel'
 
 export default function MemberBoard() {
+  const [members,    setMembers]    = useState<TeamMember[]>([])
   const [activeChat, setActiveChat] = useState<TeamMember | null>(null)
 
-  const online  = teamMembers.filter((m) => m.online)
-  const offline = teamMembers.filter((m) => !m.online)
+  useEffect(() => {
+    fetch('/api/team')
+      .then((r) => r.json())
+      .then(setMembers)
+  }, [])
+
+  const online  = members.filter((m) => m.online)
+  const offline = members.filter((m) => !m.online)
 
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
-      {/* Member list — always visible, shrinks on desktop when chat is open */}
+      {/* Member list */}
       <div
         className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
           activeChat ? 'hidden md:flex md:w-72' : 'w-full md:w-72'
@@ -23,31 +30,27 @@ export default function MemberBoard() {
           <div className="sticky top-0 px-4 pt-4 pb-3"
             style={{ background: 'linear-gradient(180deg, rgba(10,10,15,0.9) 80%, transparent 100%)' }}>
             <h2 className="text-sm font-semibold text-white">Members</h2>
-            <p className="text-xs text-white/35 mt-0.5">{teamMembers.length} total · {online.length} online</p>
+            <p className="text-xs text-white/35 mt-0.5">{members.length} total · {online.length} online</p>
           </div>
 
           <div className="px-2 pb-4 space-y-4">
-            {/* Online */}
-            <div>
-              <p className="text-[10px] font-semibold uppercase tracking-widest text-green-400/60 px-2 mb-1">
-                Online
-              </p>
-              {online.map((member) => (
-                <MemberRow
-                  key={member.id}
-                  member={member}
-                  active={activeChat?.id === member.id}
-                  onClick={() => setActiveChat(activeChat?.id === member.id ? null : member)}
-                />
-              ))}
-            </div>
+            {online.length > 0 && (
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-green-400/60 px-2 mb-1">Online</p>
+                {online.map((member) => (
+                  <MemberRow
+                    key={member.id}
+                    member={member}
+                    active={activeChat?.id === member.id}
+                    onClick={() => setActiveChat(activeChat?.id === member.id ? null : member)}
+                  />
+                ))}
+              </div>
+            )}
 
-            {/* Offline */}
             {offline.length > 0 && (
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-2 mb-1">
-                  Offline
-                </p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-2 mb-1">Offline</p>
                 {offline.map((member) => (
                   <MemberRow
                     key={member.id}
@@ -59,16 +62,19 @@ export default function MemberBoard() {
                 ))}
               </div>
             )}
+
+            {members.length === 0 && (
+              <p className="text-xs text-white/25 text-center py-8">Loading team…</p>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Right panel — chat or empty prompt */}
+      {/* Right panel */}
       <div className="flex-1 min-w-0">
         {activeChat ? (
           <ChatPanel member={activeChat} onClose={() => setActiveChat(null)} />
         ) : (
-          /* Subtle empty state — not a heavy box, just a hint */
           <div className="h-full flex flex-col items-center justify-center text-center px-8 hidden md:flex">
             <div
               className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3"
@@ -86,10 +92,7 @@ export default function MemberBoard() {
 }
 
 function MemberRow({
-  member,
-  active,
-  onClick,
-  dimmed = false,
+  member, active, onClick, dimmed = false,
 }: {
   member: TeamMember
   active: boolean
@@ -105,12 +108,8 @@ function MemberRow({
           ? { background: 'rgba(79,70,229,0.14)', border: '1px solid rgba(79,70,229,0.30)' }
           : { border: '1px solid transparent', opacity: dimmed ? 0.45 : 1 }
       }
-      onMouseEnter={(e) => {
-        if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)'
-      }}
-      onMouseLeave={(e) => {
-        if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent'
-      }}
+      onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+      onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
     >
       <div className="relative flex-shrink-0">
         <div
@@ -124,19 +123,15 @@ function MemberRow({
           {member.avatar}
         </div>
         {member.online && (
-          <span
-            className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2"
-            style={{ borderColor: '#0a0a0f' }}
-          />
+          <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2"
+            style={{ borderColor: '#0a0a0f' }} />
         )}
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-semibold text-white truncate">{member.name}</p>
         <p className="text-[11px] text-white/35 truncate">{member.role}</p>
       </div>
-      {active && (
-        <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#6366f1' }} />
-      )}
+      {active && <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: '#6366f1' }} />}
     </button>
   )
 }

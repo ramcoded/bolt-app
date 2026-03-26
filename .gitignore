@@ -22,10 +22,11 @@ yarn-error.log*
 # local tooling
 .claude/
 .omc/
+.mcp.json
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
 
 #md
-.docs/
+docs/
