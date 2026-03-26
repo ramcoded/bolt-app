@@ -61,7 +61,10 @@ export default function ChatTabs() {
 
   const membersWithPresence = members.map((m) => ({ ...m, online: onlineIds.has(m.id) }))
 
-  // Shared handler for incoming messages (called from both postgres_changes and broadcast)
+  // Shared handler for incoming messages (called from both postgres_changes and broadcast).
+  // Dual-path delivery ensures messages arrive even when Supabase REPLICA IDENTITY
+  // is not configured — postgres_changes is the primary path, broadcast is the fallback.
+  // Deduplication by message ID prevents doubles when both paths fire simultaneously.
   const handleIncoming = (raw: {
     id: string
     sender_id: string
