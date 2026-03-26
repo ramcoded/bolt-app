@@ -1,0 +1,109 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bolt-bg: #05071a;
+  --bolt-navy: #0a0f2e;
+  --bolt-maroon: #8B1A1A;
+  --bolt-maroon-light: #c0392b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-height: 100vh;
+  background: var(--bolt-bg);
+  background-image: linear-gradient(135deg, #0a0f2e 0%, #05071a 50%, #000000 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 26, 26, 0.6);
+}
+
+/* Glass card utility */
+@layer components {
+  .glass-card {
+    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-glass;
+  }
+
+  .glass-card-hover {
+    @apply glass-card transition-all duration-300 hover:bg-white/8 hover:border-white/20 hover:shadow-glass-hover;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200;
+  }
+
+  .btn-maroon {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold text-white bg-bolt-maroon hover:bg-bolt-maroon-light shadow-maroon-sm transition-all duration-200;
+  }
+
+  .btn-maroon-outline {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold text-bolt-maroon-light border border-bolt-maroon hover:bg-bolt-maroon/20 transition-all duration-200;
+  }
+
+  .maroon-text {
+    @apply text-[#c0392b];
+  }
+
+  .nav-link {
+    @apply px-3 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200;
+  }
+
+  .nav-link-active {
+    @apply px-3 py-2 rounded-lg text-sm font-medium text-white bg-white/10 border border-white/10;
+  }
+}
+
+/* Background noise texture overlay */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    radial-gradient(ellipse at 20% 20%, rgba(10, 15, 46, 0.8) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 80%, rgba(139, 26, 26, 0.08) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Page content sits above overlay */
+#__next,
+main {
+  position: relative;
+  z-index: 1;
+}
+
+/* Tooltip */
+.tooltip-canvas {
+  @apply absolute z-50 glass-card p-3 text-xs text-white/80 min-w-[180px] max-w-[260px] shadow-glass pointer-events-none;
+}
+
+/* Chat window */
+.chat-window {
+  @apply glass-card flex flex-col overflow-hidden;
+  width: 300px;
+  height: 380px;
+}

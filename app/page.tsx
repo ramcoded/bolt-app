@@ -1,0 +1,38 @@
+import TimelineGraphCard  from '@/components/Dashboard/TimelineGraphCard'
+import OnlineMembersCard  from '@/components/Dashboard/OnlineMembersCard'
+import ReminderCard       from '@/components/Dashboard/ReminderCard'
+import NotificationsCard  from '@/components/Dashboard/NotificationsCard'
+
+export default function DashboardPage() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <p className="text-sm text-white/40 mt-1">Welcome back — here&apos;s your overview.</p>
+      </div>
+
+      {/* Main grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Weekly graph — spans 2 cols on lg */}
+        <div className="lg:col-span-2">
+          <TimelineGraphCard />
+        </div>
+
+        {/* Online members */}
+        <div className="lg:col-span-1">
+          <OnlineMembersCard />
+        </div>
+
+        {/* Reminders */}
+        <div className="lg:col-span-1">
+          <ReminderCard />
+        </div>
+
+        {/* Notifications */}
+        <div className="lg:col-span-2">
+          <NotificationsCard />
+        </div>
+      </div>
+    </div>
+  )
+}
