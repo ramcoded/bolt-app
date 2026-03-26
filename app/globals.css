@@ -54,7 +54,7 @@ body {
   }
 
   .btn-ghost {
-    @apply px-4 py-2 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all duration-200;
+    @apply px-4 py-2 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200;
   }
 
   .btn-accent {
