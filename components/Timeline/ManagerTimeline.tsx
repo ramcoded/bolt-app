@@ -70,7 +70,7 @@ export default function ManagerTimeline() {
   }, [selected, loadRecords])
 
   // Derive year options from loaded records
-  const years = [...new Set(records.map((r) => parseInt(r.date.slice(0, 4))))].sort((a, b) => b - a)
+  const years = Array.from(new Set(records.map((r) => parseInt(r.date.slice(0, 4))))).sort((a, b) => b - a)
 
   const filtered = records.filter((r) => {
     if (filterYear  !== null && parseInt(r.date.slice(0, 4))     !== filterYear)  return false

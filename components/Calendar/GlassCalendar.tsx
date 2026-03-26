@@ -59,7 +59,7 @@ export default function GlassCalendar() {
           <h2 className="text-lg font-bold text-white">{format(current, 'MMMM yyyy')}</h2>
         </div>
         <div className="flex items-center gap-1">
-          <button onClick={() => setCurrent((c) => subMonths(c, 1))}
+          <button onClick={() => setCurrent((c) => subMonths(c ?? new Date(), 1))}
             className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/8 transition-colors">
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -67,7 +67,7 @@ export default function GlassCalendar() {
             className="px-3 py-1.5 rounded-xl text-xs font-medium text-white/40 hover:text-white hover:bg-white/8 transition-colors">
             Today
           </button>
-          <button onClick={() => setCurrent((c) => addMonths(c, 1))}
+          <button onClick={() => setCurrent((c) => addMonths(c ?? new Date(), 1))}
             className="p-2 rounded-xl text-white/40 hover:text-white hover:bg-white/8 transition-colors">
             <ChevronRight className="w-4 h-4" />
           </button>
