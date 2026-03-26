@@ -7,6 +7,7 @@ import {
   ArrowLeft, RefreshCw, CheckCircle2, Circle,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { useOnlineIds } from '@/lib/presence-context'
 
 type EmployeeStat = {
   id: string
@@ -39,6 +40,7 @@ function fmt(mins: number) {
 
 export default function ManagerDashboard() {
   const { profile } = useAuth()
+  const onlineIds   = useOnlineIds()
   const [summary,   setSummary]   = useState<Summary | null>(null)
   const [employees, setEmployees] = useState<EmployeeStat[]>([])
   const [loading,   setLoading]   = useState(true)
@@ -57,14 +59,22 @@ export default function ManagerDashboard() {
     }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    const interval = setInterval(load, 30000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Override DB online status with real-time presence
+  const employeesWithPresence = employees.map((e) => ({ ...e, online: onlineIds.has(e.id) }))
+  const totalOnlineNow = employeesWithPresence.filter((e) => e.online).length
 
   const statCards = summary
     ? [
-        { label: 'Total Employees', value: summary.totalEmployees,         icon: Users,     color: '#6366f1' },
-        { label: 'Online Now',      value: summary.totalOnline,            icon: Zap,       color: '#4ade80' },
-        { label: 'Clocked In',      value: summary.totalClockedIn,        icon: Clock,     color: '#f59e0b' },
-        { label: "Today's Hours",   value: fmt(summary.totalTodayMins),    icon: TrendingUp, color: '#6366f1' },
+        { label: 'Total Employees', value: summary.totalEmployees,      icon: Users,      color: '#6366f1' },
+        { label: 'Online Now',      value: totalOnlineNow,              icon: Zap,        color: '#4ade80' },
+        { label: 'Clocked In',      value: summary.totalClockedIn,      icon: Clock,      color: '#f59e0b' },
+        { label: "Today's Hours",   value: fmt(summary.totalTodayMins), icon: TrendingUp, color: '#6366f1' },
       ]
     : []
 
@@ -184,7 +194,7 @@ export default function ManagerDashboard() {
             <p className="text-sm text-white/25 text-center py-10">No employees found</p>
           ) : (
             <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
-              {employees.map((emp) => (
+              {employeesWithPresence.map((emp) => (
                 <div
                   key={emp.id}
                   className="flex flex-wrap items-center gap-4 px-5 py-3.5 hover:bg-white/2 transition-colors"

@@ -2,18 +2,38 @@
 
 import { useEffect, useState } from 'react'
 import type { TeamMember } from '@/lib/mock-data'
+import { useAuth } from '@/lib/auth-context'
+import { useOnlineIds } from '@/lib/presence-context'
 
 export default function OnlineMembersCard() {
+  const { profile } = useAuth()
+  const onlineIds   = useOnlineIds()
   const [members, setMembers] = useState<TeamMember[]>([])
 
   useEffect(() => {
-    fetch('/api/team')
+    fetch('/api/team', { cache: 'no-store' })
       .then((r) => r.json())
-      .then(setMembers)
+      .then((data) => { if (Array.isArray(data)) setMembers(data) })
   }, [])
 
-  const online  = members.filter((m) => m.online)
-  const offline = members.filter((m) => !m.online)
+  // Include the current user as always-online at the top
+  const self: TeamMember | null = profile
+    ? {
+        id:       profile.id,
+        name:     profile.name + ' (You)',
+        role:     profile.role,
+        avatar:   profile.avatar ?? profile.name.slice(0, 2).toUpperCase(),
+        online:   true,
+        lastSeen: undefined,
+      }
+    : null
+
+  const allMembers = (self ? [self, ...members] : members).map((m) => ({
+    ...m,
+    online: m.id === profile?.id ? true : onlineIds.has(m.id),
+  }))
+  const online  = allMembers.filter((m) => m.online)
+  const offline = allMembers.filter((m) => !m.online)
 
   return (
     <div className="glass-card p-5 h-full">
@@ -24,7 +44,7 @@ export default function OnlineMembersCard() {
         </div>
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl" style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
           <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-          <span className="text-xs font-medium text-green-400">{online.length}/{members.length}</span>
+          <span className="text-xs font-medium text-green-400">{online.length}/{allMembers.length}</span>
         </div>
       </div>
 

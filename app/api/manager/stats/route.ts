@@ -1,5 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const supabase = await createClient()
@@ -17,8 +20,17 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
+  // Use service role to bypass RLS so offline employees are visible too
+  const db = process.env.SUPABASE_SERVICE_ROLE_KEY
+    ? createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { autoRefreshToken: false, persistSession: false } }
+      )
+    : supabase
+
   // All employees
-  const { data: employees } = await supabase
+  const { data: employees } = await db
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
     .eq('role', 'employee')

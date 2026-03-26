@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth-context'
 import NavBar from '@/components/NavBar'
 import ChatTabs from '@/components/Chat/ChatTabs'
 import { TimeRecordsProvider } from '@/lib/time-records-context'
+import { PresenceProvider } from '@/lib/presence-context'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -15,10 +16,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <TimeRecordsProvider>
-      <NavBar />
-      <main className="min-h-[calc(100vh-4rem)] pb-16">{children}</main>
-      {!pathname.startsWith('/team') && <ChatTabs />}
-    </TimeRecordsProvider>
+    <PresenceProvider>
+      <TimeRecordsProvider>
+        <NavBar />
+        <main className="min-h-[calc(100vh-4rem)] pb-16">{children}</main>
+        {!pathname.startsWith('/team') && <ChatTabs />}
+      </TimeRecordsProvider>
+    </PresenceProvider>
   )
 }

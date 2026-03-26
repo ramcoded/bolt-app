@@ -3,20 +3,40 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import type { TeamMember } from '@/lib/mock-data'
+import { useAuth } from '@/lib/auth-context'
+import { useOnlineIds } from '@/lib/presence-context'
 import ChatPanel from './ChatPanel'
 
 export default function MemberBoard() {
+  const { profile } = useAuth()
+  const onlineIds   = useOnlineIds()
   const [members,    setMembers]    = useState<TeamMember[]>([])
   const [activeChat, setActiveChat] = useState<TeamMember | null>(null)
 
   useEffect(() => {
-    fetch('/api/team')
+    fetch('/api/team', { cache: 'no-store' })
       .then((r) => r.json())
-      .then(setMembers)
+      .then((data) => { if (Array.isArray(data)) setMembers(data) })
   }, [])
 
-  const online  = members.filter((m) => m.online)
-  const offline = members.filter((m) => !m.online)
+  // Prepend current user as always-online (can't chat with yourself so no onClick)
+  const self: TeamMember | null = profile
+    ? {
+        id:       profile.id,
+        name:     profile.name + ' (You)',
+        role:     profile.role,
+        avatar:   profile.avatar ?? profile.name.slice(0, 2).toUpperCase(),
+        online:   true,
+        lastSeen: undefined,
+      }
+    : null
+
+  const allMembers = (self ? [self, ...members] : members).map((m) => ({
+    ...m,
+    online: m.id === profile?.id ? true : onlineIds.has(m.id),
+  }))
+  const online  = allMembers.filter((m) => m.online)
+  const offline = allMembers.filter((m) => !m.online)
 
   return (
     <div className="flex gap-4 h-[calc(100vh-12rem)]">
@@ -30,7 +50,7 @@ export default function MemberBoard() {
           <div className="sticky top-0 px-4 pt-4 pb-3"
             style={{ background: 'linear-gradient(180deg, rgba(10,10,15,0.9) 80%, transparent 100%)' }}>
             <h2 className="text-sm font-semibold text-white">Members</h2>
-            <p className="text-xs text-white/35 mt-0.5">{members.length} total · {online.length} online</p>
+            <p className="text-xs text-white/35 mt-0.5">{allMembers.length} total · {online.length} online</p>
           </div>
 
           <div className="px-2 pb-4 space-y-4">
@@ -42,7 +62,7 @@ export default function MemberBoard() {
                     key={member.id}
                     member={member}
                     active={activeChat?.id === member.id}
-                    onClick={() => setActiveChat(activeChat?.id === member.id ? null : member)}
+                    onClick={member.id === profile?.id ? () => {} : () => setActiveChat(activeChat?.id === member.id ? null : member)}
                   />
                 ))}
               </div>
@@ -63,7 +83,7 @@ export default function MemberBoard() {
               </div>
             )}
 
-            {members.length === 0 && (
+            {allMembers.length === 0 && (
               <p className="text-xs text-white/25 text-center py-8">Loading team…</p>
             )}
           </div>

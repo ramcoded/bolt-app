@@ -6,6 +6,7 @@ import type { TeamMember, ChatMessage } from '@/lib/mock-data'
 import ChatWindow from './ChatWindow'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useOnlineIds } from '@/lib/presence-context'
 
 type OpenChat = { member: TeamMember; minimized: boolean; messages: ChatMessage[] }
 type Toast    = { member: TeamMember; content: string }
@@ -37,12 +38,15 @@ export default function ChatTabs() {
   const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
   const channelRef  = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const { profile } = useAuth()
+  const onlineIds   = useOnlineIds()
 
   useEffect(() => {
     fetch('/api/team')
       .then((r) => r.json())
       .then((data) => { setMembers(data); membersRef.current = data })
   }, [])
+
+  const membersWithPresence = members.map((m) => ({ ...m, online: onlineIds.has(m.id) }))
 
   // Realtime: incoming messages
   useEffect(() => {
@@ -175,7 +179,7 @@ export default function ChatTabs() {
               </button>
             </div>
             <div className="max-h-72 overflow-y-auto p-2 space-y-0.5">
-              {members.map((member) => (
+              {membersWithPresence.map((member) => (
                 <button key={member.id} onClick={() => openChat(member)}
                   className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/7 transition-colors text-left">
                   <div className="relative flex-shrink-0">
