@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { LogIn, LogOut, X } from 'lucide-react'
 
 interface ConfirmTimeModalProps {
@@ -10,11 +11,27 @@ interface ConfirmTimeModalProps {
 
 export default function ConfirmTimeModal({ action, onConfirm, onCancel }: ConfirmTimeModalProps) {
   const isIn = action === 'in'
+  const [currentTime, setCurrentTime] = useState('')
+
+  useEffect(() => {
+    const fmt = () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+    setCurrentTime(fmt())
+    const id = setInterval(() => setCurrentTime(fmt()), 1000)
+    return () => clearInterval(id)
+  }, [])
 
   return (
     <div className="modal-overlay animate-fade-in" onClick={onCancel}>
       <div
-        className="glass-card p-6 w-full max-w-sm mx-4 animate-scale-in"
+        className="p-6 w-full max-w-sm mx-4 animate-scale-in"
+        style={{
+          background: 'rgba(12,12,20,0.96)',
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
+          border: '1px solid rgba(120,110,255,0.15)',
+          borderRadius: '16px',
+          boxShadow: '0 24px 64px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Icon */}
@@ -47,10 +64,10 @@ export default function ConfirmTimeModal({ action, onConfirm, onCancel }: Confir
         </p>
 
         {/* Current time */}
-        <div className="flex items-center justify-center gap-2 mb-6 py-2 rounded-xl bg-white/4 border border-white/8">
+        <div className="flex items-center justify-center gap-2 mb-6 py-2 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <span className="text-xs text-white/40">Current time</span>
           <span className="text-sm font-mono font-semibold text-white">
-            {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })}
+            {currentTime}
           </span>
         </div>
 
@@ -58,7 +75,8 @@ export default function ConfirmTimeModal({ action, onConfirm, onCancel }: Confir
         <div className="flex gap-3">
           <button
             onClick={onCancel}
-            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:text-white bg-white/5 hover:bg-white/10 border border-white/8 transition-all duration-200"
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white/60 hover:text-white transition-all duration-200"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
           >
             Cancel
           </button>

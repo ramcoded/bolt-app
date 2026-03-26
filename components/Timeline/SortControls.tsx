@@ -38,7 +38,7 @@ export default function SortControls({ field, dir, onChange }: SortControlsProps
           style={
             field === f
               ? { background: 'rgba(79,70,229,0.15)', border: '1px solid rgba(79,70,229,0.35)', color: '#6366f1' }
-              : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.5)' }
+              : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.5)' }
           }
         >
           <Icon f={f} />

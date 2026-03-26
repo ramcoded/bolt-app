@@ -1,19 +1,39 @@
 'use client'
 
+import { useRef, useState } from 'react'
 import Link from 'next/link'
-import { Mail, Briefcase, Calendar, Clock, TrendingUp, LogIn } from 'lucide-react'
+import { Mail, Briefcase, Calendar, Clock, TrendingUp, LogIn, Camera } from 'lucide-react'
 import { useTimeRecords } from '@/lib/time-records-context'
 import { useAuth } from '@/lib/auth-context'
 import { formatDate, formatDuration } from '@/lib/time-utils'
+import AvatarImage from '@/components/AvatarImage'
 
 export default function ProfilePage() {
   const { records } = useTimeRecords()
-  const { user, profile } = useAuth()
+  const { user, profile, setProfile } = useAuth()
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   const completed    = records.filter((r) => r.duration !== null)
   const totalMins    = completed.reduce((s, r) => s + (r.duration ?? 0), 0)
   const avgMins      = completed.length ? Math.round(totalMins / completed.length) : 0
   const recentFive   = records.slice(0, 5)
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !profile) return
+    setUploading(true)
+    const form = new FormData()
+    form.append('file', file)
+    const res = await fetch('/api/profile/avatar', { method: 'POST', body: form })
+    const data = await res.json()
+    if (data.avatarUrl) {
+      setProfile({ ...profile, avatar: data.avatarUrl })
+    }
+    setUploading(false)
+    // Reset so same file can be re-selected
+    e.target.value = ''
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-5">
@@ -34,15 +54,36 @@ export default function ProfilePage() {
 
         <div className="px-6 pb-6">
           <div className="flex flex-wrap items-end justify-between gap-4 -mt-10 mb-4">
-            <div
-              className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white border-4 flex-shrink-0"
-              style={{
-                background:  'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-                borderColor: '#0a0a0f',
-                boxShadow:   '0 0 28px rgba(79,70,229,0.55)',
-              }}
-            >
-              {profile?.avatar ?? '??'}
+            {/* Avatar with upload overlay */}
+            <div className="relative flex-shrink-0 group">
+              <div
+                className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white border-4 overflow-hidden"
+                style={{
+                  background:  'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                  borderColor: '#0a0a0f',
+                  boxShadow:   '0 0 28px rgba(79,70,229,0.55)',
+                }}
+              >
+                <AvatarImage src={profile?.avatar} alt={profile?.name ?? ''} />
+              </div>
+              <button
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+                className="absolute inset-0 rounded-2xl flex items-center justify-center transition-all duration-200 opacity-0 group-hover:opacity-100"
+                style={{ background: 'rgba(0,0,0,0.55)' }}
+              >
+                {uploading
+                  ? <div className="w-5 h-5 border-2 border-white/50 border-t-white rounded-full animate-spin" />
+                  : <Camera className="w-6 h-6 text-white" />
+                }
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleAvatarChange}
+              />
             </div>
             <Link href="/" className="btn-ghost text-sm">← Dashboard</Link>
           </div>
@@ -90,9 +131,9 @@ export default function ProfilePage() {
                 key={record.id}
                 className="flex flex-wrap items-center justify-between gap-3 p-3 rounded-xl animate-fade-in"
                 style={{
-                  background:       'rgba(255,255,255,0.03)',
-                  border:           '1px solid rgba(255,255,255,0.06)',
-                  animationDelay:   `${i * 60}ms`,
+                  background:        'rgba(255,255,255,0.03)',
+                  border:            '1px solid rgba(255,255,255,0.06)',
+                  animationDelay:    `${i * 60}ms`,
                   animationFillMode: 'both',
                 }}
               >

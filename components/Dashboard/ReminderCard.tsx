@@ -8,7 +8,7 @@ import type { CalendarTask } from '@/lib/mock-data'
 const priorityBadge = (p: string) => {
   if (p === 'high')   return { bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.25)' }
   if (p === 'medium') return { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: 'rgba(245,158,11,0.25)' }
-  return { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.10)' }
+  return { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.06)' }
 }
 
 export default function ReminderCard() {

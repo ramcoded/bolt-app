@@ -101,7 +101,7 @@ export default function NotificationDropdown() {
           className="absolute right-0 top-full mt-2 w-80 rounded-2xl overflow-hidden animate-fade-in z-50"
           style={{
             background:    'rgba(10,10,20,0.97)',
-            border:        '1px solid rgba(255,255,255,0.09)',
+            border:        '1px solid rgba(255,255,255,0.06)',
             boxShadow:     '0 16px 48px rgba(0,0,0,0.6), 0 0 0 1px rgba(79,70,229,0.08)',
             backdropFilter:'blur(28px)',
           }}

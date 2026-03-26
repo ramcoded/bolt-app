@@ -1,8 +1,27 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, CheckCircle2, Circle, Trash2, X, CalendarDays, User, Flag } from 'lucide-react'
+import { Plus, CheckCircle2, Circle, Trash2, X, CalendarDays, Users, Flag, Check } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
+import { createClient } from '@/lib/supabase/client'
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: '#ef4444', medium: '#f59e0b', low: '#22c55e',
+}
+
+function mapTaskRT(t: any): Task {
+  return {
+    id:          t.id,
+    date:        t.date,
+    title:       t.title,
+    description: t.description ?? '',
+    color:       t.color ?? PRIORITY_COLORS[t.priority] ?? '#6366f1',
+    priority:    t.priority ?? 'medium',
+    assignedTo:  t.assigned_to ?? null,
+    completed:   t.completed ?? false,
+    createdBy:   t.created_by ?? null,
+  }
+}
 
 type Task = {
   id: string
@@ -24,24 +43,32 @@ const PRIORITY_COLOR = {
   low:    { bg: 'rgba(34,197,94,0.15)',  border: 'rgba(34,197,94,0.35)',  text: '#22c55e' },
 }
 
+const inputStyle = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }
+
 export default function TasksPage() {
   const { profile } = useAuth()
   const isManager   = profile?.role === 'manager'
 
-  const [tasks,     setTasks]     = useState<Task[]>([])
-  const [employees, setEmployees] = useState<Employee[]>([])
-  const [filter,    setFilter]    = useState<'all' | 'pending' | 'completed'>('all')
-  const [creating,  setCreating]  = useState(false)
-  const [loading,   setLoading]   = useState(true)
-  const [saveError, setSaveError] = useState<string | null>(null)
+  const [tasks,      setTasks]      = useState<Task[]>([])
+  const [employees,  setEmployees]  = useState<Employee[]>([])
+  const [filter,     setFilter]     = useState<'all' | 'pending' | 'completed'>('all')
+  const [memberFilter, setMemberFilter] = useState<string>('all')
+  const [creating,   setCreating]   = useState(false)
+  const [loading,    setLoading]    = useState(true)
+  const [saveError,  setSaveError]  = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
 
-  // New task form state
+  const [today, setToday] = useState('')
   const [form, setForm] = useState({
-    title: '', description: '', date: new Date().toISOString().slice(0, 10),
-    priority: 'medium' as 'low' | 'medium' | 'high', assigned_to: '',
+    title: '', description: '', date: '',
+    priority: 'medium' as 'low' | 'medium' | 'high',
   })
+  const [selectedMembers, setSelectedMembers] = useState<string[]>([])
 
   useEffect(() => {
+    const todayStr = new Date().toISOString().slice(0, 10)
+    setToday(todayStr)
+    setForm((f) => ({ ...f, date: todayStr }))
     fetch('/api/tasks')
       .then((r) => r.json())
       .then((data) => { setTasks(Array.isArray(data) ? data : []); setLoading(false) })
@@ -52,9 +79,42 @@ export default function TasksPage() {
     }
   }, [isManager])
 
+  // Realtime task sync
+  useEffect(() => {
+    if (!profile?.id) return
+    const supabase = createClient()
+    const channel  = supabase
+      .channel('tasks-live')
+      .on('postgres_changes' as any, { event: 'INSERT', schema: 'public', table: 'tasks' }, (payload: any) => {
+        const t = mapTaskRT(payload.new)
+        // employees only care about tasks assigned to them
+        if (!isManager && t.assignedTo !== profile.id) return
+        setTasks((prev) => prev.find((x) => x.id === t.id) ? prev : [...prev, t])
+      })
+      .on('postgres_changes' as any, { event: 'UPDATE', schema: 'public', table: 'tasks' }, (payload: any) => {
+        const t = mapTaskRT(payload.new)
+        if (!isManager && t.assignedTo !== profile.id) return
+        setTasks((prev) => prev.map((x) => x.id === t.id ? t : x))
+      })
+      .on('postgres_changes' as any, { event: 'DELETE', schema: 'public', table: 'tasks' }, (payload: any) => {
+        setTasks((prev) => prev.filter((x) => x.id !== payload.old.id))
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [profile?.id, isManager])
+
+  const toggleMember = (id: string) =>
+    setSelectedMembers((prev) =>
+      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
+    )
+
+  const selectAll = () =>
+    setSelectedMembers(employees.map((e) => e.id))
+
   const filtered = tasks.filter((t) => {
-    if (filter === 'pending')   return !t.completed
-    if (filter === 'completed') return t.completed
+    if (filter === 'pending'   && t.completed)  return false
+    if (filter === 'completed' && !t.completed) return false
+    if (isManager && memberFilter !== 'all' && t.assignedTo !== memberFilter) return false
     return true
   })
 
@@ -69,9 +129,7 @@ export default function TasksPage() {
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
-      const msg  = body?.error ?? `HTTP ${res.status}`
-      setSaveError(msg)
-      // Revert optimistic update
+      setSaveError(body?.error ?? `HTTP ${res.status}`)
       setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: task.completed } : t))
     }
   }
@@ -83,26 +141,35 @@ export default function TasksPage() {
 
   const createTask = async () => {
     if (!form.title || !form.date) return
-    const res = await fetch('/api/tasks', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        title:       form.title,
-        description: form.description,
-        date:        form.date,
-        priority:    form.priority,
-        assigned_to: form.assigned_to || null,
-      }),
-    })
-    const task = await res.json()
-    setTasks((prev) => [...prev, task])
-    setForm({ title: '', description: '', date: new Date().toISOString().slice(0, 10), priority: 'medium', assigned_to: '' })
-    setCreating(false)
+    setSubmitting(true)
+    try {
+      // Create one task per selected member (or unassigned if none selected)
+      const targets = selectedMembers.length > 0 ? selectedMembers : [null]
+      const created: Task[] = []
+      for (const memberId of targets) {
+        const res = await fetch('/api/tasks', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            title:       form.title,
+            description: form.description,
+            date:        form.date,
+            priority:    form.priority,
+            assigned_to: memberId,
+          }),
+        })
+        if (res.ok) created.push(await res.json())
+      }
+      setTasks((prev) => [...prev, ...created])
+      setForm({ title: '', description: '', date: today, priority: 'medium' })
+      setSelectedMembers([])
+      setCreating(false)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const assignedEmployee = (id: string | null) =>
-    employees.find((e) => e.id === id)
-
+  const emp = (id: string | null) => employees.find((e) => e.id === id)
   const pending   = tasks.filter((t) => !t.completed).length
   const completed = tasks.filter((t) =>  t.completed).length
 
@@ -113,9 +180,7 @@ export default function TasksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Tasks</h1>
-          <p className="text-sm text-white/35 mt-0.5">
-            {pending} pending · {completed} completed
-          </p>
+          <p className="text-sm text-white/35 mt-0.5">{pending} pending · {completed} completed</p>
         </div>
         {isManager && (
           <button
@@ -124,46 +189,65 @@ export default function TasksPage() {
             style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 16px rgba(79,70,229,0.4)' }}
           >
             <Plus className="w-4 h-4" />
-            New Task
+            Assign Task
           </button>
         )}
       </div>
 
-      {/* Filter tabs */}
-      <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-        {(['all', 'pending', 'completed'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className="flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
-            style={
-              filter === f
+      {/* Filters row */}
+      <div className="flex flex-wrap gap-3">
+        {/* Status filter */}
+        <div className="flex gap-1 p-1 rounded-xl flex-1 min-w-[200px]" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          {(['all', 'pending', 'completed'] as const).map((f) => (
+            <button key={f} onClick={() => setFilter(f)}
+              className="flex-1 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all"
+              style={filter === f
                 ? { background: 'rgba(79,70,229,0.25)', color: '#818cf8', border: '1px solid rgba(79,70,229,0.35)' }
-                : { color: 'rgba(255,255,255,0.35)' }
-            }
-          >
-            {f}
-          </button>
-        ))}
+                : { color: 'rgba(255,255,255,0.35)' }}
+            >{f}</button>
+          ))}
+        </div>
+
+        {/* Member filter (manager only) */}
+        {isManager && employees.length > 0 && (
+          <div className="flex gap-1 p-1 rounded-xl overflow-x-auto" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <button onClick={() => setMemberFilter('all')}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+              style={memberFilter === 'all'
+                ? { background: 'rgba(79,70,229,0.25)', color: '#818cf8', border: '1px solid rgba(79,70,229,0.35)' }
+                : { color: 'rgba(255,255,255,0.35)' }}
+            >All</button>
+            {employees.map((e) => (
+              <button key={e.id} onClick={() => setMemberFilter(memberFilter === e.id ? 'all' : e.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
+                style={memberFilter === e.id
+                  ? { background: 'rgba(79,70,229,0.25)', color: '#818cf8', border: '1px solid rgba(79,70,229,0.35)' }
+                  : { color: 'rgba(255,255,255,0.35)' }}
+              >
+                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                  style={{ background: 'rgba(79,70,229,0.4)' }}>{e.avatar}</span>
+                {e.name.split(' ')[0]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* DB error banner */}
+      {/* Error banner */}
       {saveError && (
         <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
           style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.30)' }}>
           <span className="text-red-400 font-semibold flex-shrink-0">Save failed:</span>
           <span className="text-red-300 flex-1">{saveError}</span>
-          <button onClick={() => setSaveError(null)} className="text-red-400/50 hover:text-red-300 flex-shrink-0">
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={() => setSaveError(null)} className="text-red-400/50 hover:text-red-300 flex-shrink-0"><X className="w-4 h-4" /></button>
         </div>
       )}
 
-      {/* New task form */}
+      {/* Create task form */}
       {creating && (
         <div className="glass-card p-5 space-y-4">
-          <div className="flex items-center justify-between mb-1">
-            <h2 className="text-sm font-semibold text-white">Create Task</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Assign New Task</h2>
             <button onClick={() => setCreating(false)} className="p-1 rounded-lg text-white/35 hover:text-white hover:bg-white/8 transition-colors">
               <X className="w-4 h-4" />
             </button>
@@ -174,7 +258,7 @@ export default function TasksPage() {
             onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
             placeholder="Task title *"
             className="w-full text-sm text-white placeholder-white/25 outline-none px-4 py-2.5 rounded-xl"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+            style={inputStyle}
           />
 
           <textarea
@@ -183,64 +267,94 @@ export default function TasksPage() {
             placeholder="Description (optional)"
             rows={2}
             className="w-full text-sm text-white placeholder-white/25 outline-none px-4 py-2.5 rounded-xl resize-none"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+            style={inputStyle}
           />
 
-          <div className="grid grid-cols-3 gap-3">
-            {/* Date */}
-            <div className="relative">
-              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
+          {/* Deadline + Priority */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <p className="text-[11px] text-white/35 mb-1.5 flex items-center gap-1.5">
+                <CalendarDays className="w-3 h-3" /> Deadline *
+              </p>
               <input
                 type="date"
                 value={form.date}
-                min={new Date().toISOString().slice(0, 10)}
+                min={today}
                 onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-                className="w-full text-sm text-white outline-none pl-9 pr-3 py-2.5 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', colorScheme: 'dark' }}
+                className="w-full text-sm text-white outline-none px-3 py-2.5 rounded-xl"
+                style={{ ...inputStyle, colorScheme: 'dark' }}
               />
             </div>
-
-            {/* Priority */}
-            <div className="relative">
-              <Flag className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-              <select
-                value={form.priority}
-                onChange={(e) => setForm((f) => ({ ...f, priority: e.target.value as any }))}
-                className="w-full text-sm text-white outline-none pl-9 pr-3 py-2.5 rounded-xl appearance-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
-              >
-                <option value="low">Low</option>
-                <option value="medium">Medium</option>
-                <option value="high">High</option>
-              </select>
-            </div>
-
-            {/* Assign to */}
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
-              <select
-                value={form.assigned_to}
-                onChange={(e) => setForm((f) => ({ ...f, assigned_to: e.target.value }))}
-                className="w-full text-sm text-white outline-none pl-9 pr-3 py-2.5 rounded-xl appearance-none"
-                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
-              >
-                <option value="">Unassigned</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
+            <div>
+              <p className="text-[11px] text-white/35 mb-1.5 flex items-center gap-1.5">
+                <Flag className="w-3 h-3" /> Priority
+              </p>
+              <div className="flex gap-1.5">
+                {(['low', 'medium', 'high'] as const).map((p) => (
+                  <button key={p} onClick={() => setForm((f) => ({ ...f, priority: p }))}
+                    className="flex-1 py-2 rounded-xl text-xs font-semibold capitalize transition-all"
+                    style={form.priority === p
+                      ? { background: PRIORITY_COLOR[p].bg, border: `1px solid ${PRIORITY_COLOR[p].border}`, color: PRIORITY_COLOR[p].text }
+                      : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)' }}
+                  >{p}</button>
                 ))}
-              </select>
+              </div>
             </div>
           </div>
 
-          <div className="flex justify-end gap-2">
+          {/* Member picker */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11px] text-white/35 flex items-center gap-1.5">
+                <Users className="w-3 h-3" /> Assign to members
+                {selectedMembers.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold text-white"
+                    style={{ background: 'rgba(79,70,229,0.4)' }}>{selectedMembers.length}</span>
+                )}
+              </p>
+              <button onClick={selectedMembers.length === employees.length ? () => setSelectedMembers([]) : selectAll}
+                className="text-[11px] text-indigo-400 hover:text-indigo-300 transition-colors">
+                {selectedMembers.length === employees.length ? 'Deselect all' : 'Select all'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {employees.map((e) => {
+                const sel = selectedMembers.includes(e.id)
+                return (
+                  <button key={e.id} onClick={() => toggleMember(e.id)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                    style={sel
+                      ? { background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.45)', color: '#a5b4fc' }
+                      : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)' }}
+                  >
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                      style={{ background: sel ? 'rgba(79,70,229,0.5)' : 'rgba(255,255,255,0.1)' }}>
+                      {sel ? <Check className="w-3 h-3" /> : e.avatar}
+                    </span>
+                    {e.name.split(' ')[0]}
+                  </button>
+                )
+              })}
+              {employees.length === 0 && (
+                <p className="text-xs text-white/25">No team members found</p>
+              )}
+            </div>
+            {selectedMembers.length === 0 && (
+              <p className="text-[11px] text-white/25 mt-2">No members selected — task will be unassigned</p>
+            )}
+          </div>
+
+          <div className="flex justify-end gap-2 pt-1">
             <button onClick={() => setCreating(false)} className="btn-ghost text-sm">Cancel</button>
             <button
               onClick={createTask}
-              disabled={!form.title || !form.date}
+              disabled={!form.title || !form.date || submitting}
               className="px-4 py-2 rounded-xl text-sm font-semibold text-white disabled:opacity-40 transition-all"
               style={{ background: 'var(--bolt-accent)' }}
             >
-              Create Task
+              {submitting ? 'Creating…' : selectedMembers.length > 1
+                ? `Assign to ${selectedMembers.length} members`
+                : 'Create Task'}
             </button>
           </div>
         </div>
@@ -263,32 +377,26 @@ export default function TasksPage() {
         ) : filtered.length === 0 ? (
           <div className="py-12 text-center">
             <p className="text-sm text-white/30">
-              {filter === 'completed' ? 'No completed tasks yet' : 'No tasks assigned'}
+              {filter === 'completed' ? 'No completed tasks yet' : 'No tasks found'}
             </p>
           </div>
         ) : (
           <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
             {filtered.map((task) => {
-              const pc  = PRIORITY_COLOR[task.priority] ?? PRIORITY_COLOR.medium
-              const emp = assignedEmployee(task.assignedTo)
+              const pc     = PRIORITY_COLOR[task.priority] ?? PRIORITY_COLOR.medium
+              const member = emp(task.assignedTo)
+              const isOverdue = !task.completed && task.date && task.date < today
               return (
-                <div
-                  key={task.id}
+                <div key={task.id}
                   className="flex items-start gap-4 px-5 py-4 hover:bg-white/2 transition-colors"
                   style={{ opacity: task.completed ? 0.55 : 1 }}
                 >
-                  {/* Complete toggle */}
-                  <button
-                    onClick={() => toggleComplete(task)}
-                    className="flex-shrink-0 mt-0.5 transition-colors hover:opacity-80"
-                  >
+                  <button onClick={() => toggleComplete(task)} className="flex-shrink-0 mt-0.5 hover:opacity-80 transition-colors">
                     {task.completed
                       ? <CheckCircle2 className="w-5 h-5 text-green-400" />
-                      : <Circle className="w-5 h-5 text-white/20" />
-                    }
+                      : <Circle className="w-5 h-5 text-white/20" />}
                   </button>
 
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <p className={`text-sm font-medium text-white ${task.completed ? 'line-through' : ''}`}>
                       {task.title}
@@ -297,40 +405,33 @@ export default function TasksPage() {
                       <p className="text-xs text-white/40 mt-0.5 truncate">{task.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      {/* Priority badge */}
                       <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize"
                         style={{ background: pc.bg, border: `1px solid ${pc.border}`, color: pc.text }}>
                         {task.priority}
                       </span>
-                      {/* Date */}
                       {task.date && (
-                        <span className="text-[11px] text-white/30 flex items-center gap-1">
+                        <span className={`text-[11px] flex items-center gap-1 ${isOverdue ? 'text-red-400' : 'text-white/30'}`}>
                           <CalendarDays className="w-3 h-3" />
                           {new Date(task.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          {isOverdue && <span className="font-semibold">· Overdue</span>}
                         </span>
                       )}
-                      {/* Assigned to */}
-                      {emp && (
+                      {member && (
                         <span className="flex items-center gap-1 text-[11px] text-white/35">
-                          <div className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                            style={{ background: 'rgba(79,70,229,0.35)' }}>
-                            {emp.avatar}
-                          </div>
-                          {emp.name.split(' ')[0]}
+                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                            style={{ background: 'rgba(79,70,229,0.35)' }}>{member.avatar}</span>
+                          {member.name.split(' ')[0]}
                         </span>
                       )}
-                      {!emp && task.assignedTo === null && isManager && (
+                      {!member && task.assignedTo === null && isManager && (
                         <span className="text-[11px] text-white/20">Unassigned</span>
                       )}
                     </div>
                   </div>
 
-                  {/* Delete (managers only) */}
                   {isManager && (
-                    <button
-                      onClick={() => deleteTask(task.id)}
-                      className="flex-shrink-0 p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-colors"
-                    >
+                    <button onClick={() => deleteTask(task.id)}
+                      className="flex-shrink-0 p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-colors">
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   )}
@@ -341,9 +442,7 @@ export default function TasksPage() {
         )}
       </div>
 
-      <p className="text-[11px] text-white/20 text-center">
-        Tasks also appear on your Calendar view
-      </p>
+      <p className="text-[11px] text-white/20 text-center">Tasks also appear on your Calendar view</p>
     </div>
   )
 }

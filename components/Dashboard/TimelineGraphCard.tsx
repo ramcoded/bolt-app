@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts'
@@ -8,12 +9,17 @@ import { useTimeRecords } from '@/lib/time-records-context'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-function buildWeeklyHours(records: { date: string; duration: number | null }[]) {
+type DayEntry = { day: string; hours: number }
+
+function buildWeeklyHours(records: { date: string; duration: number | null }[]): DayEntry[] {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() - (6 - i))
-    const dateStr = d.toISOString().split('T')[0]
-    const rec = records.find((r) => r.date === dateStr)
+    const year  = d.getFullYear()
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day   = String(d.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
+    const rec  = records.find((r) => r.date === dateStr)
     const hours = rec?.duration ? Math.round((rec.duration / 60) * 100) / 100 : 0
     return { day: DAY_LABELS[d.getDay()], hours }
   })
@@ -33,8 +39,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function TimelineGraphCard() {
   const { records } = useTimeRecords()
-  const weeklyHours = buildWeeklyHours(records)
-  const totalHours  = weeklyHours.reduce((s, d) => s + d.hours, 0).toFixed(1)
+  const [weeklyHours, setWeeklyHours] = useState<DayEntry[]>([])
+
+  useEffect(() => {
+    setWeeklyHours(buildWeeklyHours(records))
+  }, [records])
+
+  const totalHours = weeklyHours.reduce((s, d) => s + d.hours, 0).toFixed(1)
 
   return (
     <div className="glass-card p-5 h-full">
@@ -43,7 +54,7 @@ export default function TimelineGraphCard() {
           <h2 className="text-sm font-semibold text-white">Weekly Overview</h2>
           <p className="text-xs text-white/40 mt-0.5">Hours logged this week</p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <TrendingUp className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
           <span className="text-sm font-bold text-white">{totalHours}h</span>
         </div>

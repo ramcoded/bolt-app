@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Clock, LogIn, Timer } from 'lucide-react'
+import AvatarImage from '@/components/AvatarImage'
 import { formatDuration, toDateStr } from '@/lib/time-utils'
 import { useTimeRecords } from '@/lib/time-records-context'
 import { useAuth } from '@/lib/auth-context'
@@ -38,7 +39,7 @@ export default function ProfileCard() {
             boxShadow: '0 0 20px rgba(79,70,229,0.45)',
           }}
         >
-          {avatar}
+          <AvatarImage src={avatar} alt={name} />
         </div>
         <div className="flex-1 min-w-0">
           <h2 className="text-base font-bold text-white">{name}</h2>
@@ -63,7 +64,7 @@ export default function ProfileCard() {
       </div>
 
       {/* Live clock */}
-      <div className="flex items-center justify-between p-3 rounded-xl bg-white/4 border border-white/7">
+      <div className="flex items-center justify-between p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-white/30" />
           <span className="text-xs text-white/40">{dateStr}</span>
@@ -73,7 +74,7 @@ export default function ProfileCard() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="p-3 rounded-xl bg-white/4 border border-white/7">
+        <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-1.5 mb-1">
             <LogIn className="w-3.5 h-3.5 text-white/30" />
             <span className="text-[11px] text-white/40">Today&apos;s Time In</span>
@@ -82,7 +83,7 @@ export default function ProfileCard() {
             {todayRecord ? todayRecord.timeIn : '—'}
           </p>
         </div>
-        <div className="p-3 rounded-xl bg-white/4 border border-white/7">
+        <div className="p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div className="flex items-center gap-1.5 mb-1">
             <Timer className="w-3.5 h-3.5 text-white/30" />
             <span className="text-[11px] text-white/40">Week Total</span>

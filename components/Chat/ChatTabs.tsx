@@ -3,13 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { MessageCircle, X } from 'lucide-react'
 import type { TeamMember, ChatMessage } from '@/lib/mock-data'
+import AvatarImage from '@/components/AvatarImage'
 import ChatWindow from './ChatWindow'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
 
 type OpenChat = { member: TeamMember; minimized: boolean; messages: ChatMessage[] }
-type Toast    = { member: TeamMember; content: string }
 
 function playNotifSound() {
   try {
@@ -33,12 +33,25 @@ export default function ChatTabs() {
   const [openChats,  setOpenChats]  = useState<OpenChat[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [members,    setMembers]    = useState<TeamMember[]>([])
-  const [toast,      setToast]      = useState<Toast | null>(null)
-  const membersRef  = useRef<TeamMember[]>([])
-  const toastTimer  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const channelRef  = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-  const { profile } = useAuth()
-  const onlineIds   = useOnlineIds()
+  const [mutedIds,   setMutedIds]   = useState<Set<string>>(new Set())
+  const membersRef   = useRef<TeamMember[]>([])
+  const openChatsRef = useRef<OpenChat[]>([])
+  const mutedIdsRef  = useRef<Set<string>>(new Set())
+  const channelRef   = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const { profile }  = useAuth()
+  const onlineIds    = useOnlineIds()
+
+  // Keep refs in sync for use inside realtime closures
+  useEffect(() => { openChatsRef.current = openChats }, [openChats])
+  useEffect(() => { mutedIdsRef.current  = mutedIds  }, [mutedIds])
+
+  // Load muted IDs from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('chat-muted')
+      if (saved) setMutedIds(new Set(JSON.parse(saved)))
+    } catch { /* ignore */ }
+  }, [])
 
   useEffect(() => {
     fetch('/api/team')
@@ -48,49 +61,107 @@ export default function ChatTabs() {
 
   const membersWithPresence = members.map((m) => ({ ...m, online: onlineIds.has(m.id) }))
 
-  // Realtime: incoming messages
+  // Shared handler for incoming messages (called from both postgres_changes and broadcast)
+  const handleIncoming = (raw: {
+    id: string
+    sender_id: string
+    receiver_id: string
+    content: string
+    created_at: string
+  }, myId: string) => {
+    if (raw.receiver_id !== myId) return
+    const sender = membersRef.current.find((m) => m.id === raw.sender_id)
+    if (!sender) return
+
+    const isMuted = mutedIdsRef.current.has(sender.id)
+
+    const msg: ChatMessage = {
+      id:        raw.id,
+      senderId:  raw.sender_id,
+      content:   raw.content,
+      timestamp: new Date(raw.created_at).toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }),
+      read: false,
+    }
+
+    if (!isMuted) playNotifSound()
+
+    const existing = openChatsRef.current.find((c) => c.member.id === sender.id)
+
+    if (!existing) {
+      fetch(`/api/messages?with=${sender.id}`)
+        .then((r) => r.json())
+        .then((msgs: ChatMessage[]) => {
+          setOpenChats((p) => {
+            if (p.find((c) => c.member.id === sender.id)) {
+              // Window opened in the meantime — dedup + append if needed
+              return p.map((c) => c.member.id === sender.id
+                ? {
+                    ...c,
+                    minimized: isMuted ? c.minimized : false,
+                    messages: c.messages.find((m) => m.id === msg.id)
+                      ? c.messages
+                      : [...c.messages, msg],
+                  }
+                : c
+              )
+            }
+            return [...p, { member: sender, minimized: isMuted, messages: msgs }]
+          })
+        })
+    } else {
+      setOpenChats((p) => p.map((c) => c.member.id === sender.id
+        ? {
+            ...c,
+            minimized: isMuted ? c.minimized : false,
+            messages: c.messages.find((m) => m.id === msg.id)
+              ? c.messages
+              : [...c.messages, msg],
+          }
+        : c
+      ))
+    }
+  }
+
+  // Realtime: subscribe to inbox channel for both postgres_changes AND broadcast
   useEffect(() => {
     if (!profile?.id) return
+    const myId    = profile.id
     const supabase = createClient()
-    const channel  = supabase
-      .channel(`inbox-${profile.id}`)
+
+    const channel = supabase
+      .channel(`inbox-${myId}`)
+      // Primary: postgres_changes (requires Supabase realtime enabled on messages table)
       .on(
         'postgres_changes' as any,
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${profile.id}` },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload: any) => {
-          const msg: ChatMessage = {
-            id:        payload.new.id,
-            senderId:  payload.new.sender_id,
-            content:   payload.new.content,
-            timestamp: new Date(payload.new.created_at).toLocaleTimeString('en-US', {
-              hour: '2-digit', minute: '2-digit', hour12: false,
-            }),
-            read: false,
-          }
-
-          setOpenChats((prev) => {
-            const senderChat = prev.find((c) => c.member.id === msg.senderId)
-            // Play sound + show toast if no open (non-minimized) window for sender
-            if (!senderChat || senderChat.minimized) {
-              const sender = membersRef.current.find((m) => m.id === msg.senderId)
-              if (sender) {
-                playNotifSound()
-                setToast({ member: sender, content: msg.content })
-                if (toastTimer.current) clearTimeout(toastTimer.current)
-                toastTimer.current = setTimeout(() => setToast(null), 4500)
-              }
-            }
-            return prev.map((c) =>
-              c.member.id === msg.senderId ? { ...c, messages: [...c.messages, msg] } : c
-            )
-          })
+          handleIncoming({
+            id:          payload.new.id,
+            sender_id:   payload.new.sender_id,
+            receiver_id: payload.new.receiver_id,
+            content:     payload.new.content,
+            created_at:  payload.new.created_at,
+          }, myId)
         }
       )
+      // Fallback: broadcast pushed by the sender after their API call succeeds.
+      // Works regardless of postgres_changes / replication configuration.
+      .on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
+        handleIncoming({
+          id:          payload.id,
+          sender_id:   payload.sender_id,
+          receiver_id: payload.receiver_id,
+          content:     payload.content,
+          created_at:  payload.created_at,
+        }, myId)
+      })
       .subscribe()
 
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [profile?.id])
+  }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openChat = async (member: TeamMember) => {
     const already = openChats.find((c) => c.member.id === member.id)
@@ -104,8 +175,16 @@ export default function ChatTabs() {
     setPickerOpen(false)
   }
 
-  const closeChat   = (id: string) => setOpenChats((prev) => prev.filter((c) => c.member.id !== id))
-  const toggleMin   = (id: string) => setOpenChats((prev) => prev.map((c) => c.member.id === id ? { ...c, minimized: !c.minimized } : c))
+  const closeChat  = (id: string) => setOpenChats((prev) => prev.filter((c) => c.member.id !== id))
+  const toggleMin  = (id: string) => setOpenChats((prev) => prev.map((c) => c.member.id === id ? { ...c, minimized: !c.minimized } : c))
+  const toggleMute = (id: string, mute: boolean) => {
+    setMutedIds((prev) => {
+      const next = new Set(prev)
+      mute ? next.add(id) : next.delete(id)
+      try { localStorage.setItem('chat-muted', JSON.stringify(Array.from(next))) } catch { /* ignore */ }
+      return next
+    })
+  }
 
   const sendMessage = async (memberId: string, content: string) => {
     const res = await fetch('/api/messages', {
@@ -114,65 +193,86 @@ export default function ChatTabs() {
       body:    JSON.stringify({ receiver_id: memberId, content }),
     })
     const msg: ChatMessage = await res.json()
-    setOpenChats((prev) => prev.map((c) => c.member.id === memberId ? { ...c, messages: [...c.messages, msg] } : c))
+
+    // Update sender's own window immediately
+    setOpenChats((prev) => prev.map((c) => c.member.id === memberId
+      ? { ...c, messages: [...c.messages, msg] }
+      : c
+    ))
+
+    // Broadcast to receiver's inbox channel for guaranteed real-time delivery.
+    // Subscribes briefly, sends, then cleans up.
+    if (profile?.id) {
+      const supabase = createClient()
+      const ch = supabase.channel(`inbox-${memberId}`)
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          ch.send({
+            type:    'broadcast',
+            event:   'new_message',
+            payload: {
+              id:          msg.id,
+              sender_id:   profile.id,
+              receiver_id: memberId,
+              content:     msg.content,
+              created_at:  new Date().toISOString(),
+            },
+          }).finally(() => { supabase.removeChannel(ch) })
+        }
+      })
+    }
   }
+
+  const minimizedChats = openChats.filter((c) => c.minimized)
+  const activeChats    = openChats.filter((c) => !c.minimized)
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3">
 
-      {/* Floating message toast */}
-      {toast && (
-        <div
-          className="fixed bottom-24 right-6 z-50 flex items-start gap-3 p-3 rounded-2xl animate-slide-up cursor-pointer"
-          style={{
-            background:    'rgba(10,10,20,0.96)',
-            border:        '1px solid rgba(99,102,241,0.4)',
-            boxShadow:     '0 8px 32px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.1)',
-            backdropFilter:'blur(24px)',
-            maxWidth:      '280px',
-          }}
-          onClick={() => {
-            const m = membersRef.current.find((m) => m.id === toast.member.id)
-            if (m) openChat(m)
-            setToast(null)
-          }}
-        >
-          <div
-            className="w-9 h-9 rounded-full flex items-center justify-center font-bold text-white flex-shrink-0 text-sm"
-            style={{ background: 'rgba(79,70,229,0.35)', border: '1px solid rgba(99,102,241,0.45)' }}
-          >
-            {toast.member.avatar}
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-white leading-none">{toast.member.name}</p>
-            <p className="text-xs text-white/55 mt-1 line-clamp-2 leading-relaxed">{toast.content}</p>
-          </div>
-          <button
-            onClick={(e) => { e.stopPropagation(); setToast(null) }}
-            className="text-white/30 hover:text-white/70 transition-colors flex-shrink-0 mt-0.5"
-          >
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
-
-      {openChats.map((chat) => (
+      {/* Active (non-minimized) chat windows */}
+      {activeChats.map((chat) => (
         <ChatWindow
           key={chat.member.id}
           member={chat.member}
           messages={chat.messages}
-          minimized={chat.minimized}
+          minimized={false}
+          myId={profile?.id}
+          muted={mutedIds.has(chat.member.id)}
           onClose={() => closeChat(chat.member.id)}
           onMinimize={() => toggleMin(chat.member.id)}
           onSend={(content) => sendMessage(chat.member.id, content)}
+          onMute={(m) => toggleMute(chat.member.id, m)}
         />
       ))}
 
-      {/* FAB + picker */}
+      {/* FAB + minimized avatars + picker */}
       <div className="relative flex-shrink-0">
+
+        {/* Minimized chat avatars stacked above FAB */}
+        {minimizedChats.length > 0 && (
+          <div className="absolute bottom-14 right-0 flex flex-col-reverse gap-2 items-center pb-1">
+            {minimizedChats.map((chat) => (
+              <button
+                key={chat.member.id}
+                onClick={() => toggleMin(chat.member.id)}
+                title={chat.member.name}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white transition-all duration-200 hover:scale-110"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(79,70,229,0.9) 0%, rgba(99,102,241,0.8) 100%)',
+                  border:     '2px solid rgba(99,102,241,0.7)',
+                  boxShadow:  '0 4px 14px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2)',
+                }}
+              >
+                <AvatarImage src={chat.member.avatar} alt={chat.member.name} />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Team picker */}
         {pickerOpen && (
-          <div className="glass-card w-64 animate-slide-up absolute bottom-16 right-0">
-            <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="glass-dropdown w-64 animate-slide-up absolute bottom-16 right-0">
+            <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <p className="text-xs font-semibold text-white">Team</p>
               <button onClick={() => setPickerOpen(false)} className="p-1 rounded hover:bg-white/8 text-white/40 hover:text-white transition-colors">
                 <X className="w-3 h-3" />
@@ -185,7 +285,7 @@ export default function ChatTabs() {
                   <div className="relative flex-shrink-0">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
                       style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
-                      {member.avatar}
+                      <AvatarImage src={member.avatar} alt={member.name} />
                     </div>
                     {member.online && (
                       <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border-2"
@@ -213,14 +313,14 @@ export default function ChatTabs() {
           onClick={() => setPickerOpen(!pickerOpen)}
           className="rounded-full flex items-center justify-center transition-all duration-200 group relative"
           style={{
-            width:         '52px',
-            height:        '52px',
-            background:    pickerOpen
+            width:          '52px',
+            height:         '52px',
+            background:     pickerOpen
               ? 'var(--bolt-accent)'
               : 'linear-gradient(135deg, rgba(79,70,229,0.85) 0%, rgba(99,102,241,0.75) 100%)',
-            backdropFilter:'blur(20px)',
-            boxShadow:     '0 4px 20px rgba(79,70,229,0.45)',
-            border:        '1px solid rgba(99,102,241,0.5)',
+            backdropFilter: 'blur(20px)',
+            boxShadow:      '0 4px 20px rgba(79,70,229,0.45)',
+            border:         '1px solid rgba(99,102,241,0.5)',
           }}
         >
           <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform text-white" />

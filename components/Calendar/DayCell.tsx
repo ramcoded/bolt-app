@@ -60,7 +60,7 @@ export default function DayCell({ date, tasks, note, isToday, isCurrentMonth, on
             style={{
               backgroundColor: task.completed ? 'rgba(255,255,255,0.04)' : task.color + '25',
               color:           task.completed ? 'rgba(255,255,255,0.25)'  : task.color,
-              border:          task.completed ? '1px solid rgba(255,255,255,0.08)' : `1px solid ${task.color}40`,
+              border:          task.completed ? '1px solid rgba(255,255,255,0.05)' : `1px solid ${task.color}40`,
               textDecoration:  task.completed ? 'line-through' : 'none',
             }}
             onMouseEnter={(e) => handleTaskHover(task, e)}

@@ -57,7 +57,7 @@ export default function LoginPage() {
           className="rounded-2xl p-6"
           style={{
             background: 'rgba(255,255,255,0.03)',
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.05)',
             backdropFilter: 'blur(20px)',
           }}
         >
@@ -78,10 +78,10 @@ export default function LoginPage() {
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all duration-200"
                   style={{
                     background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.09)',
+                    border: '1px solid rgba(255,255,255,0.06)',
                   }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(79,70,229,0.5)')}
-                  onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')}
+                  onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
                 />
               </div>
             </div>
@@ -99,10 +99,10 @@ export default function LoginPage() {
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl text-sm text-white placeholder-white/20 outline-none transition-all duration-200"
                   style={{
                     background: 'rgba(255,255,255,0.04)',
-                    border: '1px solid rgba(255,255,255,0.09)',
+                    border: '1px solid rgba(255,255,255,0.06)',
                   }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = 'rgba(79,70,229,0.5)')}
-                  onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.09)')}
+                  onBlur={(e)  => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)')}
                 />
               </div>
             </div>

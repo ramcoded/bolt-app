@@ -32,6 +32,16 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Prevent multiple active clock-ins
+  const { data: active } = await supabase
+    .from('time_records')
+    .select('id')
+    .eq('user_id', user.id)
+    .is('time_out', null)
+    .maybeSingle()
+
+  if (active) return NextResponse.json({ error: 'Already clocked in' }, { status: 409 })
+
   const now    = new Date()
   const date   = now.toISOString().split('T')[0]
   const timeIn = now.toTimeString().slice(0, 5)

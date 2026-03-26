@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { X, Send, ArrowLeft } from 'lucide-react'
+import { X, Send, ArrowLeft, Check, CheckCheck } from 'lucide-react'
 import type { TeamMember, ChatMessage } from '@/lib/mock-data'
+import AvatarImage from '@/components/AvatarImage'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 
@@ -12,11 +13,15 @@ interface ChatPanelProps {
 }
 
 export default function ChatPanel({ member, onClose }: ChatPanelProps) {
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [input, setInput]       = useState('')
-  const [loading, setLoading]   = useState(true)
-  const bottomRef               = useRef<HTMLDivElement>(null)
-  const channelRef              = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const [messages,   setMessages]   = useState<ChatMessage[]>([])
+  const [input,      setInput]      = useState('')
+  const [loading,    setLoading]    = useState(true)
+  const [peerTyping, setPeerTyping] = useState(false)
+  const [readByPeer, setReadByPeer] = useState(false)
+  const bottomRef     = useRef<HTMLDivElement>(null)
+  const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const typingChannel = useRef<any>(null)
+  const typingTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
   const { profile } = useAuth()
 
   useEffect(() => {
@@ -30,6 +35,41 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Typing indicator channel
+  useEffect(() => {
+    if (!profile?.id || !member.id) return
+    const supabase = createClient()
+    const key      = [profile.id, member.id].sort().join('-')
+    const channel  = supabase
+      .channel(`typing-${key}`)
+      .on('broadcast', { event: 'typing' }, ({ payload }: any) => {
+        if (payload.userId === profile.id) return
+        setPeerTyping(true)
+        if (typingTimer.current) clearTimeout(typingTimer.current)
+        typingTimer.current = setTimeout(() => setPeerTyping(false), 3000)
+      })
+      .on('broadcast', { event: 'read' }, ({ payload }: any) => {
+        if (payload.userId === profile.id) return
+        setReadByPeer(true)
+      })
+      .subscribe()
+    typingChannel.current = channel
+    return () => {
+      if (typingTimer.current) clearTimeout(typingTimer.current)
+      supabase.removeChannel(channel)
+    }
+  }, [profile?.id, member.id])
+
+  const broadcastTyping = () => {
+    typingChannel.current?.send({ type: 'broadcast', event: 'typing', payload: { userId: profile?.id } })
+  }
+
+  // Broadcast "read" whenever messages change (panel is always open/visible)
+  useEffect(() => {
+    if (!profile?.id || !typingChannel.current) return
+    typingChannel.current.send({ type: 'broadcast', event: 'read', payload: { userId: profile.id } })
+  }, [messages, profile?.id])
+
   // Realtime subscription for incoming messages
   useEffect(() => {
     if (!profile?.id) return
@@ -38,13 +78,9 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
       .channel(`panel-${profile.id}-${member.id}`)
       .on(
         'postgres_changes' as any,
-        {
-          event:  'INSERT',
-          schema: 'public',
-          table:  'messages',
-          filter: `receiver_id=eq.${profile.id}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload: any) => {
+          if (payload.new.receiver_id !== profile.id) return
           if (payload.new.sender_id !== member.id) return
           const msg: ChatMessage = {
             id:        payload.new.id,
@@ -68,6 +104,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     const text = input.trim()
     if (!text) return
     setInput('')
+    setReadByPeer(false)
     const res = await fetch('/api/messages', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -81,7 +118,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     <div className="glass-card flex flex-col h-full animate-slide-in-right">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-        style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+        style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
         <button onClick={onClose}
           className="p-1.5 rounded-xl text-white/35 hover:text-white hover:bg-white/8 transition-colors md:hidden">
           <ArrowLeft className="w-4 h-4" />
@@ -89,7 +126,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
         <div className="relative">
           <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
             style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
-            {member.avatar}
+            <AvatarImage src={member.avatar} alt={member.name} />
           </div>
           {member.online && (
             <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-green-400 border-2"
@@ -98,8 +135,8 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-white">{member.name}</p>
-          <p className="text-xs" style={{ color: member.online ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
-            {member.online ? 'Online' : `Last seen ${member.lastSeen ?? 'a while ago'}`}
+          <p className="text-xs" style={{ color: peerTyping ? '#4ade80' : member.online ? '#4ade80' : 'rgba(255,255,255,0.35)' }}>
+            {peerTyping ? 'typing…' : member.online ? 'Online' : `Last seen ${member.lastSeen ?? 'a while ago'}`}
           </p>
         </div>
         <button onClick={onClose}
@@ -117,47 +154,80 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
               style={{ background: 'rgba(79,70,229,0.15)', border: '1px solid rgba(79,70,229,0.25)' }}>
-              <span className="text-2xl font-bold text-white/40">{member.avatar}</span>
+              <span className="text-2xl font-bold text-white/40"><AvatarImage src={member.avatar} alt={member.name} /></span>
             </div>
             <p className="text-sm text-white/35">Start a conversation with</p>
             <p className="text-sm font-semibold text-white">{member.name}</p>
           </div>
         )}
-        {messages.map((msg) => {
-          const isMe = msg.senderId === 'me'
-          return (
-            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'} gap-2`}>
-              {!isMe && (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-auto"
-                  style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
-                  {member.avatar}
+        {(() => {
+          const myMsgs = messages.filter((m) => m.senderId === 'me' || m.senderId === profile?.id)
+          const lastMyMsgId = myMsgs[myMsgs.length - 1]?.id
+          return messages.map((msg) => {
+            const isMe       = msg.senderId === 'me' || msg.senderId === profile?.id
+            const isLastMine = isMe && msg.id === lastMyMsgId
+            return (
+              <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
+                <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} gap-2 w-full`}>
+                  {!isMe && (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-auto"
+                      style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
+                      <AvatarImage src={member.avatar} alt={member.name} />
+                    </div>
+                  )}
+                  <div className={`max-w-[70%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                    style={
+                      isMe
+                        ? { background: 'var(--bolt-accent)', color: '#fff' }
+                        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.88)' }
+                    }>
+                    <p>{msg.content}</p>
+                    <p className="text-[11px] opacity-40 mt-1 text-right">{msg.timestamp}</p>
+                  </div>
                 </div>
-              )}
-              <div className={`max-w-[70%] px-3.5 py-2 rounded-2xl text-sm leading-relaxed ${isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
-                style={
-                  isMe
-                    ? { background: 'var(--bolt-accent)', color: '#fff' }
-                    : { background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.88)' }
-                }>
-                <p>{msg.content}</p>
-                <p className="text-[11px] opacity-40 mt-1 text-right">{msg.timestamp}</p>
+                {isLastMine && (
+                  <div className="flex items-center gap-0.5 mt-0.5 pr-1">
+                    {readByPeer ? (
+                      <>
+                        <CheckCheck className="w-3 h-3 text-indigo-400" />
+                        <span className="text-[10px] text-indigo-400">Read</span>
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-3 h-3 text-white/30" />
+                        <span className="text-[10px] text-white/30">Sent</span>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
+            )
+          })
+        })()}
+        {peerTyping && (
+          <div className="flex justify-start">
+            <div className="px-3 py-2 rounded-2xl rounded-bl-sm flex items-center gap-1"
+              style={{ background: 'rgba(255,255,255,0.05)' }}>
+              {[0, 1, 2].map((i) => (
+                <span key={i} className="w-1.5 h-1.5 rounded-full bg-white/40 animate-bounce"
+                  style={{ animationDelay: `${i * 150}ms` }} />
+              ))}
             </div>
-          )
-        })}
+          </div>
+        )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+      <div className="p-3 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div className="flex items-center gap-2">
           <input
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => { setInput(e.target.value); broadcastTyping() }}
             onKeyDown={(e) => e.key === 'Enter' && send()}
             placeholder={`Message ${member.name.split(' ')[0]}...`}
             className="flex-1 text-sm text-white placeholder-white/25 outline-none px-4 py-2.5 rounded-2xl"
-            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)' }}
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
           />
           <button onClick={send}
             className="w-10 h-10 rounded-2xl text-white flex items-center justify-center flex-shrink-0 transition-opacity hover:opacity-80"

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { MessageCircle } from 'lucide-react'
 import type { TeamMember } from '@/lib/mock-data'
+import AvatarImage from '@/components/AvatarImage'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
 import ChatPanel from './ChatPanel'
@@ -140,7 +141,7 @@ function MemberRow({
               : { background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.30)' }
           }
         >
-          {member.avatar}
+          <AvatarImage src={member.avatar} alt={member.name} />
         </div>
         {member.online && (
           <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2"

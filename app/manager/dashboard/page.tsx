@@ -44,7 +44,12 @@ export default function ManagerDashboard() {
   const [summary,   setSummary]   = useState<Summary | null>(null)
   const [employees, setEmployees] = useState<EmployeeStat[]>([])
   const [loading,   setLoading]   = useState(true)
-  const [lastRefresh, setLastRefresh] = useState(new Date())
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
+  const [today, setToday] = useState('')
+
+  useEffect(() => {
+    setToday(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
+  }, [])
 
   const load = async () => {
     setLoading(true)
@@ -119,7 +124,7 @@ export default function ManagerDashboard() {
 
         <div className="flex items-center gap-3">
           <span className="text-xs text-white/25 hidden sm:block">
-            Refreshed {lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}
+            {lastRefresh ? `Refreshed ${lastRefresh.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false })}` : 'Loading…'}
           </span>
           <button
             onClick={load}
@@ -144,7 +149,7 @@ export default function ManagerDashboard() {
         <div>
           <h1 className="text-2xl font-bold text-white">Team Overview</h1>
           <p className="text-sm text-white/35 mt-0.5">
-            Real-time view of all employees · {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            Real-time view of all employees · {today}
           </p>
         </div>
 

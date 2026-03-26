@@ -82,14 +82,14 @@ export default function NavBar() {
               {/* Clock */}
               <div
                 className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}
               >
                 <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#6366f1' }} />
                 <LiveClock />
               </div>
 
               {/* Time In / Time Out */}
-              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.09)' }}>
+              <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <button
                   onClick={() => setModal('in')}
                   className="px-3 py-2 text-xs font-semibold transition-all duration-200"
@@ -101,7 +101,7 @@ export default function NavBar() {
                 >
                   Time In
                 </button>
-                <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.09)' }} />
+                <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
                 <button
                   onClick={() => setModal('out')}
                   className="px-3 py-2 text-xs font-semibold transition-all duration-200"

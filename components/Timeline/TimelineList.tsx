@@ -7,12 +7,28 @@ import { useTimeRecords } from '@/lib/time-records-context'
 import SortControls, { SortField, SortDir } from './SortControls'
 import { Clock, LogIn, LogOut, Timer } from 'lucide-react'
 
+const MONTHS = [
+  'January','February','March','April','May','June',
+  'July','August','September','October','November','December',
+]
+
 export default function TimelineList() {
-  const [field, setField] = useState<SortField>('date')
-  const [dir,   setDir]   = useState<SortDir>('desc')
+  const [field,       setField]       = useState<SortField>('date')
+  const [dir,         setDir]         = useState<SortDir>('desc')
+  const [filterYear,  setFilterYear]  = useState<number | null>(null)
+  const [filterMonth, setFilterMonth] = useState<number | null>(null)
   const { records } = useTimeRecords()
 
-  const sorted = [...records].filter((r) => r?.id).sort((a, b) => {
+  const years = [...new Set(records.map((r) => parseInt(r.date.slice(0, 4))))].sort((a, b) => b - a)
+
+  const filtered = records.filter((r) => {
+    if (!r?.id) return false
+    if (filterYear  !== null && parseInt(r.date.slice(0, 4))     !== filterYear)  return false
+    if (filterMonth !== null && parseInt(r.date.slice(5, 7)) - 1 !== filterMonth) return false
+    return true
+  })
+
+  const sorted = [...filtered].sort((a, b) => {
     let cmp = 0
     if (field === 'date') {
       cmp = (a.date ?? '').localeCompare(b.date ?? '')
@@ -24,8 +40,35 @@ export default function TimelineList() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <p className="text-sm text-white/35">{records.length} records</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-white/35">Filter:</span>
+
+          <select
+            value={filterYear ?? ''}
+            onChange={(e) => setFilterYear(e.target.value ? parseInt(e.target.value) : null)}
+            className="text-xs text-white outline-none px-3 py-1.5 rounded-xl appearance-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', colorScheme: 'dark' }}
+          >
+            <option value="">All Years</option>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+
+          <select
+            value={filterMonth ?? ''}
+            onChange={(e) => setFilterMonth(e.target.value !== '' ? parseInt(e.target.value) : null)}
+            className="text-xs text-white outline-none px-3 py-1.5 rounded-xl appearance-none"
+            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)', colorScheme: 'dark' }}
+          >
+            <option value="">All Months</option>
+            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+          </select>
+
+          <span className="text-xs text-white/25">
+            {sorted.length} record{sorted.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
         <SortControls field={field} dir={dir} onChange={(f, d) => { setField(f); setDir(d) }} />
       </div>
 
@@ -33,6 +76,11 @@ export default function TimelineList() {
         {sorted.map((record, i) => (
           <TimelineRow key={record.id} record={record} index={i} />
         ))}
+        {sorted.length === 0 && (
+          <div className="glass-card py-12 text-center">
+            <p className="text-sm text-white/30">No records for this period</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -45,9 +93,9 @@ function TimelineRow({ record, index }: { record: TimeRecord; index: number }) {
     <div
       className="glass-card p-4 border-l-2 transition-all duration-200 hover:bg-white/4 animate-fade-in"
       style={{
-        borderLeftColor:    isActive ? '#4ade80' : '#4f46e5',
-        animationDelay:     `${index * 50}ms`,
-        animationFillMode:  'both',
+        borderLeftColor:   isActive ? '#4ade80' : '#4f46e5',
+        animationDelay:    `${index * 50}ms`,
+        animationFillMode: 'both',
       }}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -98,7 +146,7 @@ function TimelineRow({ record, index }: { record: TimeRecord; index: number }) {
             </span>
           ) : (
             <span className="px-2.5 py-1 rounded-xl text-[10px] font-semibold text-white/35"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
               Complete
             </span>
           )}

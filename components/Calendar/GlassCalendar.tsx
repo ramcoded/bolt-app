@@ -13,14 +13,17 @@ import DayCell from './DayCell'
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 export default function GlassCalendar() {
-  const [current, setCurrent] = useState(new Date())
+  const [current, setCurrent] = useState<Date | null>(null)
   const [tasks,   setTasks]   = useState<CalendarTask[]>([])
   const [notes,   setNotes]   = useState<CalendarNote[]>([])
 
   useEffect(() => {
+    setCurrent(new Date())
     fetch('/api/tasks').then((r) => r.json()).then(setTasks)
     fetch('/api/calendar-notes').then((r) => r.json()).then(setNotes)
   }, [])
+
+  if (!current) return <div className="glass-card p-5 animate-pulse h-64" />
 
   const handleNoteChange = async (dateStr: string, content: string) => {
     setNotes((prev) => {
