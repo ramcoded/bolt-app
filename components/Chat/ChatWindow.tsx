@@ -86,7 +86,7 @@ export default function ChatWindow({ member, messages, minimized, myId, muted, o
       >
         <div className="flex items-center gap-2">
           <div className="relative">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
               style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
               <AvatarImage src={member.avatar} alt={member.name} />
             </div>

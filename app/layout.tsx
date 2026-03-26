@@ -3,12 +3,22 @@ import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'
 import AppShell from '@/components/AppShell'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import type { Profile } from '@/lib/auth-context'
 import NextTopLoader from 'nextjs-toploader'
+
+function getAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export const metadata: Metadata = {
   title: 'BOLT',
   description: 'Team time tracking and collaboration',
+  icons: { icon: '/favicon.svg' },
 }
 
 // Tells Dark Reader the site is already dark — prevents it from injecting
@@ -32,7 +42,22 @@ export default async function RootLayout({
       .select('*')
       .eq('id', user.id)
       .single()
-    profile = data
+
+    if (data) {
+      profile = data
+    } else {
+      // Profile row missing — create one (handles accounts created before the signup trigger)
+      const name = (user.user_metadata?.name as string | undefined)
+        ?? user.email
+        ?? 'User'
+      const admin = getAdmin()
+      const { data: created } = await admin
+        .from('profiles')
+        .insert({ id: user.id, name, avatar: name.slice(0, 2).toUpperCase(), role: 'employee' })
+        .select()
+        .single()
+      profile = created
+    }
   }
 
   return (

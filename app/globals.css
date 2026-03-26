@@ -3,6 +3,7 @@
 @tailwind utilities;
 
 :root {
+  color-scheme: dark;
   --bolt-bg:           #000000;
   --bolt-surface:      #0a0a0f;
   --bolt-surface2:     #111118;

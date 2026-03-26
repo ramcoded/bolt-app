@@ -33,10 +33,11 @@ export default function ProfileCard() {
       {/* User info */}
       <div className="flex items-center gap-4">
         <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0"
+          className="w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-bold text-white flex-shrink-0 overflow-hidden"
           style={{
             background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
             boxShadow: '0 0 20px rgba(79,70,229,0.45)',
+            border: '2px solid rgba(99,102,241,0.6)',
           }}
         >
           <AvatarImage src={avatar} alt={name} />

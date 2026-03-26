@@ -134,7 +134,7 @@ function MemberRow({
     >
       <div className="relative flex-shrink-0">
         <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold text-white overflow-hidden"
           style={
             active
               ? { background: 'var(--bolt-accent)', boxShadow: '0 0 10px rgba(79,70,229,0.4)' }

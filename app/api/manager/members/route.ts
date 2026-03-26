@@ -23,15 +23,27 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const admin = getAdmin()
-  const { data: members, error } = await admin
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
     .order('name', { ascending: true })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ members: members ?? [] })
+  // Fetch auth users to determine invite status
+  const admin = getAdmin()
+  const { data: authData } = await admin.auth.admin.listUsers()
+  const authMap = new Map<string, { last_sign_in_at: string | null }>(
+    (authData?.users ?? []).map((u) => [u.id, { last_sign_in_at: u.last_sign_in_at ?? null }])
+  )
+
+  const members = (profiles ?? []).map((m) => {
+    const authUser = authMap.get(m.id)
+    const status: 'pending' | 'joined' = authUser?.last_sign_in_at ? 'joined' : 'pending'
+    return { ...m, status }
+  })
+
+  return NextResponse.json({ members })
 }
 
 export async function DELETE(request: Request) {

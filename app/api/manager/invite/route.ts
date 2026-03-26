@@ -26,7 +26,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { name, role, department: department || null },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/login`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
   })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })

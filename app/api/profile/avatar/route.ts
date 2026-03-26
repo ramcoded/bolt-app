@@ -1,5 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+
+function getAdmin() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 export async function POST(req: Request) {
   const supabase = await createClient()
@@ -10,22 +19,24 @@ export async function POST(req: Request) {
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-  const ext  = file.name.split('.').pop() ?? 'jpg'
-  const path = `${user.id}/avatar.${ext}`
+  const ext   = file.name.split('.').pop() ?? 'jpg'
+  const path  = `${user.id}/avatar.${ext}`
   const bytes = await file.arrayBuffer()
 
-  const { error: uploadError } = await supabase.storage
+  const admin = getAdmin()
+
+  const { error: uploadError } = await admin.storage
     .from('avatars')
     .upload(path, bytes, { contentType: file.type, upsert: true })
 
   if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
 
-  const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
+  const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(path)
 
   // Append cache-buster so the new upload shows immediately
   const avatarUrl = `${publicUrl}?t=${Date.now()}`
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await admin
     .from('profiles')
     .update({ avatar: avatarUrl })
     .eq('id', user.id)

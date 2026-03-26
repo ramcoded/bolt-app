@@ -28,19 +28,12 @@ export async function GET(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
 
   const admin = getAdmin()
-  const { data, error } = await admin
-    .from('schedules')
-    .select('day_of_week, time_in, time_out')
-    .eq('user_id', userId)
-    .order('day_of_week')
+  const { data: authUser, error } = await admin.auth.admin.getUserById(userId)
+  if (error || !authUser) return NextResponse.json({ schedule: [] })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const schedule = (data ?? []).map((row) => ({
-    day:     row.day_of_week,
-    timeIn:  row.time_in,
-    timeOut: row.time_out,
-  }))
+  const schedule = (authUser.user.user_metadata?.schedule ?? []) as Array<{
+    day: number; timeIn: string; timeOut: string
+  }>
 
   return NextResponse.json({ schedule })
 }
@@ -56,19 +49,15 @@ export async function PUT(request: Request) {
 
   const admin = getAdmin()
 
-  // Replace all schedule rows for this user atomically
-  await admin.from('schedules').delete().eq('user_id', userId)
+  // Preserve existing metadata, merge in the schedule
+  const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId)
+  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
 
-  if (schedule.length > 0) {
-    const rows = schedule.map((s: { day: number; timeIn: string; timeOut: string }) => ({
-      user_id:     userId,
-      day_of_week: s.day,
-      time_in:     s.timeIn,
-      time_out:    s.timeOut,
-    }))
-    const { error } = await admin.from('schedules').insert(rows)
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  const existingMeta = authUser.user.user_metadata ?? {}
+  const { error } = await admin.auth.admin.updateUserById(userId, {
+    user_metadata: { ...existingMeta, schedule },
+  })
 
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

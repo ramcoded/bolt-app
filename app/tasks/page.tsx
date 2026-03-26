@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, CheckCircle2, Circle, Trash2, X, CalendarDays, Users, Flag, Check } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
+import AvatarImage from '@/components/AvatarImage'
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: '#ef4444', medium: '#f59e0b', low: '#22c55e',
@@ -210,26 +211,17 @@ export default function TasksPage() {
 
         {/* Member filter (manager only) */}
         {isManager && employees.length > 0 && (
-          <div className="flex gap-1 p-1 rounded-xl overflow-x-auto" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-            <button onClick={() => setMemberFilter('all')}
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-              style={memberFilter === 'all'
-                ? { background: 'rgba(79,70,229,0.25)', color: '#818cf8', border: '1px solid rgba(79,70,229,0.35)' }
-                : { color: 'rgba(255,255,255,0.35)' }}
-            >All</button>
+          <select
+            value={memberFilter}
+            onChange={(e) => setMemberFilter(e.target.value)}
+            className="px-3 py-1.5 rounded-xl text-xs font-semibold text-white outline-none"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', colorScheme: 'dark' }}
+          >
+            <option value="all">All Members</option>
             {employees.map((e) => (
-              <button key={e.id} onClick={() => setMemberFilter(memberFilter === e.id ? 'all' : e.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                style={memberFilter === e.id
-                  ? { background: 'rgba(79,70,229,0.25)', color: '#818cf8', border: '1px solid rgba(79,70,229,0.35)' }
-                  : { color: 'rgba(255,255,255,0.35)' }}
-              >
-                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
-                  style={{ background: 'rgba(79,70,229,0.4)' }}>{e.avatar}</span>
-                {e.name.split(' ')[0]}
-              </button>
+              <option key={e.id} value={e.id}>{e.name}</option>
             ))}
-          </div>
+          </select>
         )}
       </div>
 
@@ -327,9 +319,9 @@ export default function TasksPage() {
                       ? { background: 'rgba(79,70,229,0.2)', border: '1px solid rgba(79,70,229,0.45)', color: '#a5b4fc' }
                       : { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.45)' }}
                   >
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                    <span className="w-5 h-5 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                       style={{ background: sel ? 'rgba(79,70,229,0.5)' : 'rgba(255,255,255,0.1)' }}>
-                      {sel ? <Check className="w-3 h-3" /> : e.avatar}
+                      {sel ? <Check className="w-3 h-3" /> : <AvatarImage src={e.avatar} alt={e.name} fallback={e.name[0]} />}
                     </span>
                     {e.name.split(' ')[0]}
                   </button>
@@ -418,8 +410,10 @@ export default function TasksPage() {
                       )}
                       {member && (
                         <span className="flex items-center gap-1 text-[11px] text-white/35">
-                          <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
-                            style={{ background: 'rgba(79,70,229,0.35)' }}>{member.avatar}</span>
+                          <span className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                            style={{ background: 'rgba(79,70,229,0.35)' }}>
+                            <AvatarImage src={member.avatar} alt={member.name} fallback={member.name[0]} />
+                          </span>
                           {member.name.split(' ')[0]}
                         </span>
                       )}

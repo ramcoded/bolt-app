@@ -37,8 +37,8 @@ export default function ProfileDropdown() {
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-white/8 transition-all duration-200 border border-transparent hover:border-white/10"
       >
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white"
-          style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 10px rgba(79,70,229,0.4)' }}
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
+          style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 10px rgba(79,70,229,0.4)', border: '2px solid rgba(99,102,241,0.6)' }}
         >
           <AvatarImage src={avatar} alt={name} />
         </div>
@@ -52,8 +52,8 @@ export default function ProfileDropdown() {
           <div className="px-4 py-3" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
             <div className="flex items-center gap-3">
               <div
-                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-                style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 12px rgba(79,70,229,0.4)' }}
+                className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0 overflow-hidden"
+                style={{ background: 'var(--bolt-accent)', boxShadow: '0 0 12px rgba(79,70,229,0.4)', border: '2px solid rgba(99,102,241,0.6)' }}
               >
                 <AvatarImage src={avatar} alt={name} />
               </div>

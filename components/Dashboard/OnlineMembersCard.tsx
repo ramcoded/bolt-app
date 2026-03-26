@@ -53,8 +53,8 @@ export default function OnlineMembersCard() {
         {online.map((member) => (
           <div key={member.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/4 transition-colors">
             <div className="relative flex-shrink-0">
-              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
-                style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
+              <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
+                style={{ background: 'rgba(79,70,229,0.25)', border: '2px solid rgba(99,102,241,0.55)' }}>
                 <AvatarImage src={member.avatar} alt={member.name} />
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2"
@@ -74,8 +74,8 @@ export default function OnlineMembersCard() {
             {offline.map((member) => (
               <div key={member.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-xl opacity-40">
                 <div className="relative flex-shrink-0">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white/50"
-                    style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white/50 overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.06)', border: '2px solid rgba(255,255,255,0.12)' }}>
                     <AvatarImage src={member.avatar} alt={member.name} />
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2"

@@ -286,7 +286,7 @@ export default function ChatTabs() {
                 <button key={member.id} onClick={() => openChat(member)}
                   className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/7 transition-colors text-left">
                   <div className="relative flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
                       style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
                       <AvatarImage src={member.avatar} alt={member.name} />
                     </div>

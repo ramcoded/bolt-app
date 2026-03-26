@@ -1,19 +1,15 @@
 'use client'
 
-import dynamic from 'next/dynamic'
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { TimeRecordsProvider } from '@/lib/time-records-context'
 import { PresenceProvider } from '@/lib/presence-context'
+import NavBar from '@/components/NavBar'
+import ChatTabs from '@/components/Chat/ChatTabs'
 
-// Skip SSR for UI chrome so browser extensions (Dark Reader, etc.)
-// cannot cause hydration mismatches by modifying the DOM before React loads.
-const NavBar   = dynamic(() => import('@/components/NavBar'),        { ssr: false })
-const ChatTabs = dynamic(() => import('@/components/Chat/ChatTabs'), { ssr: false })
-
-// Renders children only after the first client-side paint so that inline
-// styles on any page component cannot mismatch server-rendered HTML.
+// Renders children only on the client to prevent hydration mismatches
+// caused by browser extensions (Dark Reader, etc.) modifying the DOM.
 function ClientOnly({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
@@ -31,11 +27,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <PresenceProvider>
       <TimeRecordsProvider>
-        <NavBar />
+        <ClientOnly>
+          <NavBar />
+        </ClientOnly>
         <main className="min-h-[calc(100vh-4rem)] pb-16">
           <ClientOnly>{children}</ClientOnly>
         </main>
-        {!pathname.startsWith('/team') && <ChatTabs />}
+        <ClientOnly>
+          {!pathname.startsWith('/team') && <ChatTabs />}
+        </ClientOnly>
       </TimeRecordsProvider>
     </PresenceProvider>
   )

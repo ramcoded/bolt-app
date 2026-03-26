@@ -9,17 +9,21 @@ import ProfileDropdown from './Profile/ProfileDropdown'
 import NotificationDropdown from './NotificationDropdown'
 import ConfirmTimeModal from './ConfirmTimeModal'
 import { useTimeRecords } from '@/lib/time-records-context'
+import { useAuth } from '@/lib/auth-context'
 
 const navLinks = [
-  { href: '/',         label: 'Dashboard' },
-  { href: '/timeline', label: 'Timeline'  },
-  { href: '/calendar', label: 'Calendar'  },
-  { href: '/tasks',    label: 'Tasks'     },
-  { href: '/team',     label: 'Team'      },
+  { href: '/',          label: 'Dashboard' },
+  { href: '/timeline',  label: 'Timeline'  },
+  { href: '/calendar',  label: 'Calendar'  },
+  { href: '/tasks',     label: 'Tasks'     },
+  { href: '/team',      label: 'Team'      },
+  { href: '/settings',  label: 'Settings'  },
 ]
 
 export default function NavBar() {
   const pathname  = usePathname()
+  const { profile } = useAuth()
+  const isManager = profile?.role === 'manager'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [modal,      setModal]      = useState<'in' | 'out' | null>(null)
   const { timedIn, clockIn, clockOut } = useTimeRecords()
@@ -75,6 +79,15 @@ export default function NavBar() {
                   </Link>
                 )
               })}
+              {isManager && (
+                <Link
+                  href="/manager/dashboard"
+                  className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
+                  style={{ color: pathname === '/manager/dashboard' ? '#818cf8' : 'rgba(99,102,241,0.75)' }}
+                >
+                  Manager
+                </Link>
+              )}
             </div>
 
             {/* Right side */}
@@ -153,6 +166,15 @@ export default function NavBar() {
                   </Link>
                 )
               })}
+              {isManager && (
+                <Link
+                  href="/manager/dashboard"
+                  className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  Manager
+                </Link>
+              )}
             </div>
           </div>
         )}

@@ -37,6 +37,7 @@ export default function ManagerScheduleEditor({
   const [editing,  setEditing]  = useState(false)
   const [draft,    setDraft]    = useState<DraftDay[]>([])
   const [saving,   setSaving]   = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!userId) return
@@ -56,16 +57,25 @@ export default function ManagerScheduleEditor({
 
   const save = async () => {
     setSaving(true)
+    setSaveError(null)
     const activeDays = draft
       .filter((d) => d.active)
       .map((d) => ({ day: d.day, timeIn: d.timeIn, timeOut: d.timeOut }))
     try {
-      const res = await fetch('/api/manager/schedules', {
+      const res  = await fetch('/api/manager/schedules', {
         method:  'PUT',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ userId, schedule: activeDays }),
       })
-      if (res.ok) { setSchedule(activeDays); setEditing(false) }
+      const data = await res.json()
+      if (res.ok) {
+        setSchedule(activeDays)
+        setEditing(false)
+      } else {
+        setSaveError(data.error ?? 'Failed to save schedule.')
+      }
+    } catch {
+      setSaveError('Network error — please try again.')
     } finally {
       setSaving(false)
     }
@@ -121,6 +131,11 @@ export default function ManagerScheduleEditor({
           </div>
         )}
       </div>
+
+      {/* Save error */}
+      {saveError && (
+        <p className="text-xs text-red-400 mb-2 px-1">{saveError}</p>
+      )}
 
       {/* View mode — compact 7-day grid */}
       {!editing && (

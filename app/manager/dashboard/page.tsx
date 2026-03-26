@@ -31,6 +31,7 @@ type Member = {
   avatar: string
   role: 'manager' | 'employee'
   department: string | null
+  status?: 'pending' | 'joined'
 }
 
 const ROLES: { value: 'manager' | 'employee'; label: string }[] = [
@@ -445,6 +446,24 @@ export default function ManagerDashboard() {
                     <p className="text-sm font-medium text-white truncate">{member.name}</p>
                     <p className="text-xs text-white/35 truncate">{member.department ?? 'No department'}</p>
                   </div>
+
+                  {/* Invite status badge */}
+                  {member.status === 'pending' && (
+                    <span
+                      className="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}
+                    >
+                      Pending
+                    </span>
+                  )}
+                  {member.status === 'joined' && (
+                    <span
+                      className="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ background: 'rgba(74,222,128,0.12)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.25)' }}
+                    >
+                      Joined
+                    </span>
+                  )}
 
                   {/* Delete button */}
                   {member.id !== profile?.id && (

@@ -12,8 +12,9 @@ import CropModal from '@/components/Profile/CropModal'
 export default function ProfilePage() {
   const { records } = useTimeRecords()
   const { user, profile, setProfile } = useAuth()
-  const [cropSrc,   setCropSrc]   = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [cropSrc,     setCropSrc]     = useState<string | null>(null)
+  const [uploading,   setUploading]   = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const completed  = records.filter((r) => r.duration !== null)
@@ -35,13 +36,23 @@ export default function ProfilePage() {
   const handleCropSave = async (blob: Blob) => {
     if (!profile) return
     setUploading(true)
-    const form = new FormData()
-    form.append('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
-    const res  = await fetch('/api/profile/avatar', { method: 'POST', body: form })
-    const data = await res.json()
-    if (data.avatarUrl) setProfile({ ...profile, avatar: data.avatarUrl })
-    setUploading(false)
-    setCropSrc(null)
+    setUploadError(null)
+    try {
+      const form = new FormData()
+      form.append('file', new File([blob], 'avatar.jpg', { type: 'image/jpeg' }))
+      const res  = await fetch('/api/profile/avatar', { method: 'POST', body: form })
+      const data = await res.json()
+      if (!res.ok || !data.avatarUrl) {
+        setUploadError(data.error ?? 'Upload failed. Make sure the "avatars" storage bucket exists and is public in Supabase.')
+        return  // keep modal open so user doesn't lose their crop
+      }
+      setProfile({ ...profile, avatar: data.avatarUrl })
+      setCropSrc(null)  // only close on success
+    } catch {
+      setUploadError('Network error — please try again.')
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -69,7 +80,7 @@ export default function ProfilePage() {
                 className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white border-4 overflow-hidden"
                 style={{
                   background:  'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-                  borderColor: '#0a0a0f',
+                  borderColor: 'rgba(99,102,241,0.6)',
                   boxShadow:   '0 0 28px rgba(79,70,229,0.55)',
                 }}
               >
@@ -135,8 +146,19 @@ export default function ProfilePage() {
           imageSrc={cropSrc}
           saving={uploading}
           onSave={handleCropSave}
-          onCancel={() => setCropSrc(null)}
+          onCancel={() => { setCropSrc(null); setUploadError(null) }}
         />
+      )}
+
+      {/* Upload error toast */}
+      {uploadError && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-white shadow-xl"
+          style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.35)', backdropFilter: 'blur(12px)' }}
+        >
+          <span>{uploadError}</span>
+          <button onClick={() => setUploadError(null)} className="text-white/50 hover:text-white ml-1">✕</button>
+        </div>
       )}
 
       {/* Recent activity */}
