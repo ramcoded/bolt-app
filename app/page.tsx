@@ -1,3 +1,4 @@
+import ProfileCard         from '@/components/Dashboard/ProfileCard'
 import TimelineGraphCard  from '@/components/Dashboard/TimelineGraphCard'
 import OnlineMembersCard  from '@/components/Dashboard/OnlineMembersCard'
 import ReminderCard       from '@/components/Dashboard/ReminderCard'
@@ -11,8 +12,12 @@ export default function DashboardPage() {
         <p className="text-sm text-white/40 mt-1">Welcome back — here&apos;s your overview.</p>
       </div>
 
-      {/* Main grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {/* Profile card — full width on mobile, 1 col on lg */}
+        <div className="md:col-span-2 lg:col-span-1">
+          <ProfileCard />
+        </div>
+
         {/* Weekly graph — spans 2 cols on lg */}
         <div className="lg:col-span-2">
           <TimelineGraphCard />
@@ -29,7 +34,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Notifications */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-1">
           <NotificationsCard />
         </div>
       </div>

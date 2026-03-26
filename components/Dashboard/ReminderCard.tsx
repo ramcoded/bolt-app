@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { calendarTasks } from '@/lib/mock-data'
-import { Bell, Calendar } from 'lucide-react'
+import { Calendar } from 'lucide-react'
 import { formatDate } from '@/lib/time-utils'
 
 export default function ReminderCard() {
@@ -20,39 +20,43 @@ export default function ReminderCard() {
     .slice(0, 3)
 
   const priorityBadge = (p: string) => {
-    if (p === 'high')   return 'bg-red-500/20 text-red-400 border-red-500/30'
-    if (p === 'medium') return 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-    return 'bg-white/10 text-white/50 border-white/10'
+    if (p === 'high')   return { bg: 'rgba(239,68,68,0.12)',  color: '#f87171', border: 'rgba(239,68,68,0.25)' }
+    if (p === 'medium') return { bg: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: 'rgba(245,158,11,0.25)' }
+    return { bg: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.35)', border: 'rgba(255,255,255,0.10)' }
   }
 
   return (
-    <div className="glass-card p-5">
+    <div className="glass-card p-5 h-full">
       <div className="flex items-center gap-2 mb-4">
-        <Calendar className="w-4 h-4 text-[#c0392b]" />
+        <Calendar className="w-4 h-4" style={{ color: '#6366f1' }} />
         <h2 className="text-sm font-semibold text-white">Upcoming</h2>
       </div>
 
       {upcoming.length === 0 ? (
-        <p className="text-xs text-white/30 text-center py-6">No upcoming tasks</p>
+        <p className="text-xs text-white/25 text-center py-6">No upcoming tasks</p>
       ) : (
-        <div className="space-y-2.5">
-          {upcoming.map((task) => (
-            <div key={task.id} className="flex items-start gap-2.5 p-2.5 rounded-xl bg-white/5 hover:bg-white/8 transition-colors border border-white/5">
-              <div
-                className="w-2 h-2 rounded-full mt-1 flex-shrink-0"
-                style={{ backgroundColor: task.color }}
-              />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-medium text-white truncate">{task.title}</p>
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded-md border font-medium flex-shrink-0 ${priorityBadge(task.priority)}`}>
-                    {task.priority}
-                  </span>
+        <div className="space-y-2">
+          {upcoming.map((task) => {
+            const badge = priorityBadge(task.priority)
+            return (
+              <div key={task.id}
+                className="flex items-start gap-2.5 p-2.5 rounded-xl transition-colors hover:bg-white/4"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                <div className="w-2 h-2 rounded-full mt-1 flex-shrink-0" style={{ backgroundColor: task.color }} />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-white truncate">{task.title}</p>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium flex-shrink-0 capitalize"
+                      style={{ background: badge.bg, color: badge.color, border: `1px solid ${badge.border}` }}>
+                      {task.priority}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/35 mt-0.5">{formatDate(task.date)}</p>
                 </div>
-                <p className="text-[10px] text-white/40 mt-0.5">{formatDate(task.date)}</p>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

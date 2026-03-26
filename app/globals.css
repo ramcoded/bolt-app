@@ -3,10 +3,11 @@
 @tailwind utilities;
 
 :root {
-  --bolt-bg: #05071a;
-  --bolt-navy: #0a0f2e;
-  --bolt-maroon: #8B1A1A;
-  --bolt-maroon-light: #c0392b;
+  --bolt-bg:           #000000;
+  --bolt-surface:      #0a0a0f;
+  --bolt-surface2:     #111118;
+  --bolt-accent:       #4f46e5;
+  --bolt-accent-light: #6366f1;
 }
 
 * {
@@ -19,7 +20,7 @@ html,
 body {
   min-height: 100vh;
   background: var(--bolt-bg);
-  background-image: linear-gradient(135deg, #0a0f2e 0%, #05071a 50%, #000000 100%);
+  background-image: linear-gradient(160deg, #0a0a0f 0%, #05050a 60%, #000000 100%);
   color: #ffffff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -27,83 +28,130 @@ body {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.02);
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(139, 26, 26, 0.6);
-}
+::-webkit-scrollbar        { width: 5px; height: 5px; }
+::-webkit-scrollbar-track  { background: rgba(255,255,255,0.02); }
+::-webkit-scrollbar-thumb  { background: rgba(255,255,255,0.08); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(79,70,229,0.5); }
 
 /* Glass card utility */
 @layer components {
   .glass-card {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl shadow-glass;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
   .glass-card-hover {
-    @apply glass-card transition-all duration-300 hover:bg-white/8 hover:border-white/20 hover:shadow-glass-hover;
+    @apply glass-card transition-all duration-300;
+  }
+  .glass-card-hover:hover {
+    background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+    border-color: rgba(255,255,255,0.14);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.10);
   }
 
   .btn-ghost {
-    @apply px-4 py-2 rounded-xl text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200;
+    @apply px-4 py-2 rounded-xl text-sm font-medium text-white/60 hover:text-white hover:bg-white/8 transition-all duration-200;
   }
 
-  .btn-maroon {
-    @apply px-4 py-2 rounded-xl text-sm font-semibold text-white bg-bolt-maroon hover:bg-bolt-maroon-light shadow-maroon-sm transition-all duration-200;
+  .btn-accent {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all duration-200;
+    background: var(--bolt-accent);
+    box-shadow: 0 0 10px rgba(79,70,229,0.35);
+  }
+  .btn-accent:hover {
+    background: var(--bolt-accent-light);
+    box-shadow: 0 0 20px rgba(79,70,229,0.55);
   }
 
-  .btn-maroon-outline {
-    @apply px-4 py-2 rounded-xl text-sm font-semibold text-bolt-maroon-light border border-bolt-maroon hover:bg-bolt-maroon/20 transition-all duration-200;
+  .btn-accent-outline {
+    @apply px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200;
+    color: #6366f1;
+    border: 1px solid rgba(79,70,229,0.5);
+  }
+  .btn-accent-outline:hover {
+    background: rgba(79,70,229,0.12);
   }
 
-  .maroon-text {
-    @apply text-[#c0392b];
+  .accent-text {
+    color: #6366f1;
   }
 
   .nav-link {
-    @apply px-3 py-2 rounded-lg text-sm font-medium text-white/60 hover:text-white hover:bg-white/10 transition-all duration-200;
+    @apply px-3 py-2 rounded-lg text-sm font-medium text-white/50 hover:text-white transition-all duration-200;
+  }
+  .nav-link:hover {
+    background: rgba(255,255,255,0.06);
   }
 
   .nav-link-active {
-    @apply px-3 py-2 rounded-lg text-sm font-medium text-white bg-white/10 border border-white/10;
+    @apply px-3 py-2 rounded-lg text-sm font-medium text-white;
+    background: rgba(79,70,229,0.15);
+    border: 1px solid rgba(79,70,229,0.25);
   }
 }
 
-/* Background noise texture overlay */
+/* Ambient background glow */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background-image:
-    radial-gradient(ellipse at 20% 20%, rgba(10, 15, 46, 0.8) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 80%, rgba(139, 26, 26, 0.08) 0%, transparent 50%);
+    radial-gradient(ellipse at 15% 15%, rgba(79,70,229,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 85%, rgba(99,102,241,0.05) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
 
-/* Page content sits above overlay */
-#__next,
 main {
   position: relative;
   z-index: 1;
 }
 
+/* Modal overlay */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Tooltip */
 .tooltip-canvas {
-  @apply absolute z-50 glass-card p-3 text-xs text-white/80 min-w-[180px] max-w-[260px] shadow-glass pointer-events-none;
+  position: absolute;
+  z-index: 50;
+  padding: 10px 12px;
+  min-width: 180px;
+  max-width: 260px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.8);
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
 }
 
 /* Chat window */
 .chat-window {
-  @apply glass-card flex flex-col overflow-hidden;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   width: 300px;
   height: 380px;
+  background: linear-gradient(135deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-bottom: none;
+  border-radius: 14px 14px 0 0;
+  box-shadow: 0 -4px 30px rgba(0,0,0,0.5);
 }
