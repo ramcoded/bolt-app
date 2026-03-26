@@ -12,10 +12,10 @@ export default function TimelineList() {
   const [dir,   setDir]   = useState<SortDir>('desc')
   const { records } = useTimeRecords()
 
-  const sorted = [...records].sort((a, b) => {
+  const sorted = [...records].filter((r) => r?.id).sort((a, b) => {
     let cmp = 0
     if (field === 'date') {
-      cmp = a.date.localeCompare(b.date)
+      cmp = (a.date ?? '').localeCompare(b.date ?? '')
     } else {
       cmp = (a.duration ?? -1) - (b.duration ?? -1)
     }

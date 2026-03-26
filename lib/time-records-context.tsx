@@ -25,8 +25,9 @@ export function TimeRecordsProvider({ children }: { children: ReactNode }) {
     fetch('/api/time-records')
       .then((r) => r.json())
       .then((data: TimeRecord[]) => {
-        setRecords(data)
-        const active = data.find((r) => r.timeOut === null)
+        const safe = Array.isArray(data) ? data : []
+        setRecords(safe)
+        const active = safe.find((r) => r.timeOut === null)
         if (active) setActiveId(active.id)
       })
       .finally(() => setLoading(false))

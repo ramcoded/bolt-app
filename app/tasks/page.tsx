@@ -33,6 +33,7 @@ export default function TasksPage() {
   const [filter,    setFilter]    = useState<'all' | 'pending' | 'completed'>('all')
   const [creating,  setCreating]  = useState(false)
   const [loading,   setLoading]   = useState(true)
+  const [saveError, setSaveError] = useState<string | null>(null)
 
   // New task form state
   const [form, setForm] = useState({
@@ -60,13 +61,17 @@ export default function TasksPage() {
   const toggleComplete = async (task: Task) => {
     const newCompleted = !task.completed
     setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: newCompleted } : t))
+    setSaveError(null)
     const res = await fetch(`/api/tasks/${task.id}`, {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ completed: newCompleted }),
     })
     if (!res.ok) {
-      // Revert optimistic update if DB save failed
+      const body = await res.json().catch(() => ({}))
+      const msg  = body?.error ?? `HTTP ${res.status}`
+      setSaveError(msg)
+      // Revert optimistic update
       setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: task.completed } : t))
     }
   }
@@ -141,6 +146,18 @@ export default function TasksPage() {
           </button>
         ))}
       </div>
+
+      {/* DB error banner */}
+      {saveError && (
+        <div className="flex items-start gap-3 px-4 py-3 rounded-xl text-sm"
+          style={{ background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.30)' }}>
+          <span className="text-red-400 font-semibold flex-shrink-0">Save failed:</span>
+          <span className="text-red-300 flex-1">{saveError}</span>
+          <button onClick={() => setSaveError(null)} className="text-red-400/50 hover:text-red-300 flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       {/* New task form */}
       {creating && (

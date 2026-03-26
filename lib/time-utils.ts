@@ -6,8 +6,10 @@ export function formatDuration(minutes: number): string {
   return `${h}h ${m.toString().padStart(2, '0')}m`
 }
 
-export function formatDate(dateStr: string): string {
+export function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return '—'
   const date = parse(dateStr, 'yyyy-MM-dd', new Date())
+  if (isNaN(date.getTime())) return dateStr
   if (isToday(date)) return 'Today'
   if (isYesterday(date)) return 'Yesterday'
   return format(date, 'EEE, MMM d yyyy')

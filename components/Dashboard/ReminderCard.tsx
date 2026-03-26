@@ -21,7 +21,7 @@ export default function ReminderCard() {
         const todayStr = new Date().toISOString().split('T')[0]
         const upcoming = (Array.isArray(data) ? data : [])
           .filter((t) => t.date && t.date >= todayStr)
-          .sort((a, b) => a.date.localeCompare(b.date))
+          .sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''))
           .slice(0, 3)
         setTasks(upcoming)
       })
