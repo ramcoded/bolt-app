@@ -37,16 +37,34 @@ export default function NotificationDropdown() {
         { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}` },
         (payload: any) => {
           const n = payload.new
-          setNotifs((prev) => [{
-            id:          n.id,
-            title:       n.title,
-            description: n.description,
-            type:        n.type,
-            read:        false,
-            time:        'just now',
-          }, ...prev])
+          setNotifs((prev) => {
+            if (prev.some((x) => x.id === n.id)) return prev
+            return [{
+              id:          n.id,
+              title:       n.title,
+              description: n.description,
+              type:        n.type,
+              read:        false,
+              time:        'just now',
+            }, ...prev]
+          })
         }
       )
+      // Broadcast fallback: fired by the manager's client after task creation.
+      // Works even when postgres_changes / REPLICA IDENTITY is not configured.
+      .on('broadcast', { event: 'new_notification' }, ({ payload }: any) => {
+        setNotifs((prev) => {
+          if (prev.some((x) => x.id === payload.id || (x.title === payload.title && x.time === 'just now'))) return prev
+          return [{
+            id:          payload.id,
+            title:       payload.title,
+            description: payload.description,
+            type:        payload.type,
+            read:        false,
+            time:        'just now',
+          }, ...prev]
+        })
+      })
       .subscribe()
     return () => { supabase.removeChannel(channel) }
   }, [profile?.id])

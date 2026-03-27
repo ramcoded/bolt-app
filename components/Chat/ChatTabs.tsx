@@ -8,6 +8,7 @@ import ChatWindow from './ChatWindow'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
+import { useToast } from '@/components/Toast'
 
 type OpenChat = { member: TeamMember; minimized: boolean; messages: ChatMessage[] }
 
@@ -41,6 +42,7 @@ export default function ChatTabs() {
   const handleIncomingRef = useRef<typeof handleIncoming | null>(null)
   const { profile }  = useAuth()
   const onlineIds    = useOnlineIds()
+  const { addToast } = useToast()
 
   // Keep refs in sync for use inside realtime closures
   useEffect(() => { openChatsRef.current = openChats }, [openChats])
@@ -89,7 +91,10 @@ export default function ChatTabs() {
       read: false,
     }
 
-    if (!isMuted) playNotifSound()
+    if (!isMuted) {
+      playNotifSound()
+      addToast(sender.name, raw.content, 'message')
+    }
 
     const existing = openChatsRef.current.find((c) => c.member.id === sender.id)
 
@@ -208,8 +213,8 @@ export default function ChatTabs() {
     ))
 
     // Broadcast to receiver's inbox channel for guaranteed real-time delivery.
-    // Subscribes briefly, sends, then cleans up.
-    if (profile?.id) {
+    // Skip when messaging self — message is already added above.
+    if (profile?.id && memberId !== profile.id) {
       const supabase = createClient()
       const ch = supabase.channel(`inbox-${memberId}`)
       ch.subscribe((status: string) => {
@@ -286,11 +291,44 @@ export default function ChatTabs() {
               </button>
             </div>
             <div className="max-h-72 overflow-y-auto p-2 space-y-0.5">
+              {/* Self-chat entry */}
+              {profile && (() => {
+                const selfMember: TeamMember = {
+                  id: profile.id,
+                  name: profile.name,
+                  avatar: profile.avatar ?? '',
+                  role: 'Notes to yourself',
+                  online: true,
+                }
+                return (
+                  <button key="self" onClick={() => openChat(selfMember)}
+                    className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/7 transition-colors text-left">
+                    <div className="relative flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
+                        style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
+                        <AvatarImage src={selfMember.avatar} alt={selfMember.name} />
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border-2"
+                        style={{ borderColor: '#0a0a0f' }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-medium text-white truncate">{selfMember.name}</p>
+                        <span className="text-[9px] px-1 py-0.5 rounded font-semibold" style={{ background: 'rgba(99,102,241,0.3)', color: '#a5b4fc' }}>You</span>
+                      </div>
+                      <p className="text-[10px] text-white/35 truncate">{selfMember.role}</p>
+                    </div>
+                  </button>
+                )
+              })()}
+              {membersWithPresence.length > 0 && profile && (
+                <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }} />
+              )}
               {membersWithPresence.map((member) => (
                 <button key={member.id} onClick={() => openChat(member)}
                   className="w-full flex items-center gap-2 px-2 py-2 rounded-xl hover:bg-white/7 transition-colors text-left">
                   <div className="relative flex-shrink-0">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden"
+                    <div className="w-8 h-8 rounded-full relative flex items-center justify-center text-xs font-bold text-white overflow-hidden"
                       style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
                       <AvatarImage src={member.avatar} alt={member.name} />
                     </div>

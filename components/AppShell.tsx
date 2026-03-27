@@ -7,6 +7,7 @@ import { TimeRecordsProvider } from '@/lib/time-records-context'
 import { PresenceProvider } from '@/lib/presence-context'
 import NavBar from '@/components/NavBar'
 import ChatTabs from '@/components/Chat/ChatTabs'
+import { ToastProvider } from '@/components/Toast'
 
 // Renders children only on the client to prevent hydration mismatches
 // caused by browser extensions (Dark Reader, etc.) modifying the DOM.
@@ -27,15 +28,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <PresenceProvider key={user?.id ?? 'guest'}>
       <TimeRecordsProvider key={user?.id ?? 'guest'}>
-        <ClientOnly>
-          <NavBar />
-        </ClientOnly>
-        <main className="min-h-[calc(100vh-4rem)] pb-16" suppressHydrationWarning>
-          <ClientOnly>{children}</ClientOnly>
-        </main>
-        <ClientOnly>
-          {!pathname.startsWith('/team') && <ChatTabs />}
-        </ClientOnly>
+        <ToastProvider>
+          <ClientOnly>
+            <NavBar />
+          </ClientOnly>
+          <main className="min-h-[calc(100vh-4rem)] pb-16" suppressHydrationWarning>
+            <ClientOnly>{children}</ClientOnly>
+          </main>
+          <ClientOnly>
+            {!pathname.startsWith('/team') && <ChatTabs />}
+          </ClientOnly>
+        </ToastProvider>
       </TimeRecordsProvider>
     </PresenceProvider>
   )

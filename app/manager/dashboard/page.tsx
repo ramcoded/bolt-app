@@ -302,7 +302,7 @@ export default function ManagerDashboard() {
           ) : employees.length === 0 ? (
             <p className="text-sm text-white/25 text-center py-10">No employees found</p>
           ) : (
-            <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+            <div className="divide-y divide-white/[0.05]">
               {employeesWithPresence.map((emp) => (
                 <div
                   key={emp.id}
@@ -422,7 +422,7 @@ export default function ManagerDashboard() {
           ) : members.length === 0 ? (
             <p className="text-sm text-white/25 text-center py-10">No members found</p>
           ) : (
-            <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.04)' }}>
+            <div className="divide-y divide-white/[0.05]">
               {members.map((member) => (
                 <div
                   key={member.id}

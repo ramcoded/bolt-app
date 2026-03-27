@@ -70,30 +70,40 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     typingChannel.current.send({ type: 'broadcast', event: 'read', payload: { userId: profile.id } })
   }, [messages, profile?.id])
 
-  // Realtime subscription for incoming messages
+  // Realtime subscription for incoming messages (postgres_changes + broadcast fallback)
   useEffect(() => {
     if (!profile?.id) return
     const supabase = createClient()
+
+    const toMsg = (raw: any): ChatMessage => ({
+      id:        raw.id,
+      senderId:  raw.sender_id,
+      content:   raw.content,
+      timestamp: new Date(raw.created_at).toLocaleTimeString('en-US', {
+        hour: '2-digit', minute: '2-digit', hour12: false,
+      }),
+      read: false,
+    })
+
     const channel = supabase
-      .channel(`panel-${profile.id}-${member.id}`)
+      .channel(`inbox-${profile.id}`)
       .on(
         'postgres_changes' as any,
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${profile.id}` },
         (payload: any) => {
-          if (payload.new.receiver_id !== profile.id) return
           if (payload.new.sender_id !== member.id) return
-          const msg: ChatMessage = {
-            id:        payload.new.id,
-            senderId:  payload.new.sender_id,
-            content:   payload.new.content,
-            timestamp: new Date(payload.new.created_at).toLocaleTimeString('en-US', {
-              hour: '2-digit', minute: '2-digit', hour12: false,
-            }),
-            read: false,
-          }
-          setMessages((prev) => [...prev, msg])
+          setMessages((prev) =>
+            prev.find((m) => m.id === payload.new.id) ? prev : [...prev, toMsg(payload.new)]
+          )
         }
       )
+      .on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
+        if (payload.sender_id !== member.id || payload.receiver_id !== profile.id) return
+        const msg = toMsg({ ...payload, created_at: payload.created_at ?? new Date().toISOString() })
+        setMessages((prev) =>
+          prev.find((m) => m.id === payload.id) ? prev : [...prev, msg]
+        )
+      })
       .subscribe()
 
     channelRef.current = channel
@@ -124,7 +134,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
           <ArrowLeft className="w-4 h-4" />
         </button>
         <div className="relative">
-          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white"
+          <div className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white overflow-hidden"
             style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
             <AvatarImage src={member.avatar} alt={member.name} />
           </div>
@@ -170,7 +180,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
               <div key={msg.id} className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                 <div className={`flex ${isMe ? 'justify-end' : 'justify-start'} gap-2 w-full`}>
                   {!isMe && (
-                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-auto"
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-auto overflow-hidden"
                       style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}>
                       <AvatarImage src={member.avatar} alt={member.name} />
                     </div>

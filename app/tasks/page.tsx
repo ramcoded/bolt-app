@@ -5,6 +5,7 @@ import { Plus, CheckCircle2, Circle, Trash2, X, CalendarDays, Users, Flag, Check
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import AvatarImage from '@/components/AvatarImage'
+import { useToast } from '@/components/Toast'
 
 const PRIORITY_COLORS: Record<string, string> = {
   high: '#ef4444', medium: '#f59e0b', low: '#22c55e',
@@ -47,8 +48,9 @@ const PRIORITY_COLOR = {
 const inputStyle = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }
 
 export default function TasksPage() {
-  const { profile } = useAuth()
-  const isManager   = profile?.role === 'manager'
+  const { profile }  = useAuth()
+  const isManager    = profile?.role === 'manager'
+  const { addToast } = useToast()
 
   const [tasks,      setTasks]      = useState<Task[]>([])
   const [employees,  setEmployees]  = useState<Employee[]>([])
@@ -147,6 +149,7 @@ export default function TasksPage() {
       // Create one task per selected member (or unassigned if none selected)
       const targets = selectedMembers.length > 0 ? selectedMembers : [null]
       const created: Task[] = []
+      const supabase = createClient()
       for (const memberId of targets) {
         const res = await fetch('/api/tasks', {
           method:  'POST',
@@ -159,10 +162,39 @@ export default function TasksPage() {
             assigned_to: memberId,
           }),
         })
-        if (res.ok) created.push(await res.json())
+        if (res.ok) {
+          created.push(await res.json())
+          // Broadcast notification to the assigned employee for guaranteed real-time delivery
+          if (memberId) {
+            const ch = supabase.channel(`notifs-${memberId}`)
+            ch.subscribe((status: string) => {
+              if (status === 'SUBSCRIBED') {
+                ch.send({
+                  type:    'broadcast',
+                  event:   'new_notification',
+                  payload: {
+                    id:          `bc-${Date.now()}-${memberId}`,
+                    title:       `New task assigned: ${form.title}`,
+                    description: `${profile?.name ?? 'Manager'} assigned you a task due ${form.date}.`,
+                    type:        'task',
+                  },
+                }).finally(() => supabase.removeChannel(ch))
+              }
+            })
+          }
+        }
       }
       setTasks((prev) => [...prev, ...created])
       setForm({ title: '', description: '', date: today, priority: 'medium' })
+      const assignedNames = selectedMembers
+        .map((id) => employees.find((e) => e.id === id)?.name.split(' ')[0])
+        .filter(Boolean)
+        .join(', ')
+      addToast(
+        created.length === 1 ? 'Task assigned' : `${created.length} tasks assigned`,
+        assignedNames ? `Assigned to ${assignedNames}` : 'Task created successfully',
+        'task',
+      )
       setSelectedMembers([])
       setCreating(false)
     } finally {
@@ -373,7 +405,7 @@ export default function TasksPage() {
             </p>
           </div>
         ) : (
-          <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+          <div className="divide-y divide-white/10">
             {filtered.map((task) => {
               const pc     = PRIORITY_COLOR[task.priority] ?? PRIORITY_COLOR.medium
               const member = emp(task.assignedTo)
