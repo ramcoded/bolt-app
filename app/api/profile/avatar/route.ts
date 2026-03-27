@@ -1,6 +1,18 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
+import { rateLimit } from '@/lib/rate-limit'
+
+const ALLOWED_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png':  'png',
+  'image/webp': 'webp',
+  'image/gif':  'gif',
+}
+
+const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 
 function getAdmin() {
   return createAdminClient(
@@ -15,11 +27,26 @@ export async function POST(req: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Rate limit: 10 uploads per hour per user
+  if (!rateLimit(`avatar:${user.id}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many uploads. Please try again later.' }, { status: 429 })
+  }
+
   const formData = await req.formData()
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-  const ext   = file.name.split('.').pop() ?? 'jpg'
+  // Validate MIME type
+  const ext = ALLOWED_TYPES[file.type]
+  if (!ext) {
+    return NextResponse.json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP, GIF' }, { status: 400 })
+  }
+
+  // Validate size
+  if (file.size > MAX_SIZE) {
+    return NextResponse.json({ error: 'File too large. Maximum size is 5 MB.' }, { status: 400 })
+  }
+
   const path  = `${user.id}/avatar.${ext}`
   const bytes = await file.arrayBuffer()
 
@@ -29,7 +56,10 @@ export async function POST(req: Request) {
     .from('avatars')
     .upload(path, bytes, { contentType: file.type, upsert: true })
 
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+  if (uploadError) {
+    logError('profile/avatar/POST', uploadError)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   const { data: { publicUrl } } = admin.storage.from('avatars').getPublicUrl(path)
 
@@ -41,7 +71,10 @@ export async function POST(req: Request) {
     .update({ avatar: avatarUrl })
     .eq('id', user.id)
 
-  if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })
+  if (updateError) {
+    logError('profile/avatar/POST', updateError)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ avatarUrl })
 }

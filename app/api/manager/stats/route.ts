@@ -1,6 +1,8 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 

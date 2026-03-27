@@ -1,17 +1,25 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { logError } from '@/lib/logger'
 
-function mapMessage(m: any, meId: string) {
+function mapMessage(m: Record<string, unknown>, meId: string) {
   return {
     id:        m.id,
     senderId:  m.sender_id === meId ? 'me' : m.sender_id,
     content:   m.content,
-    timestamp: new Date(m.created_at).toLocaleTimeString('en-US', {
+    timestamp: new Date(m.created_at as string).toLocaleTimeString('en-US', {
       hour: '2-digit', minute: '2-digit', hour12: false,
     }),
     read: m.read,
   }
 }
+
+const postSchema = z.object({
+  receiver_id: z.string().uuid(),
+  content: z.string().min(1).max(5000),
+})
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -22,6 +30,9 @@ export async function GET(request: Request) {
   const withId = searchParams.get('with')
   if (!withId) return NextResponse.json({ error: 'Missing with param' }, { status: 400 })
 
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '50', 10) || 50, 1), 200)
+  const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)
+
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -29,8 +40,12 @@ export async function GET(request: Request) {
       `and(sender_id.eq.${user.id},receiver_id.eq.${withId}),and(sender_id.eq.${withId},receiver_id.eq.${user.id})`
     )
     .order('created_at', { ascending: true })
+    .range(offset, offset + limit - 1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('messages/GET', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   // Mark received messages as read
   await supabase
@@ -48,10 +63,13 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { receiver_id, content } = await request.json()
-  if (!receiver_id || !content) {
-    return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  const raw = await request.json()
+  const result = postSchema.safeParse(raw)
+  if (!result.success) {
+    return NextResponse.json({ error: 'Invalid input', details: result.error.flatten() }, { status: 400 })
   }
+
+  const { receiver_id, content } = result.data
 
   const { data, error } = await supabase
     .from('messages')
@@ -59,6 +77,9 @@ export async function POST(request: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('messages/POST', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
   return NextResponse.json(mapMessage(data, user.id))
 }

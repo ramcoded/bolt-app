@@ -1,6 +1,9 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,6 +19,17 @@ async function verifyManager(supabase: Awaited<ReturnType<typeof createClient>>,
   const { data } = await supabase.from('profiles').select('role').eq('id', userId).single()
   return data?.role === 'manager'
 }
+
+const scheduleEntrySchema = z.object({
+  day: z.number().int().min(0).max(6),
+  timeIn: z.string().regex(/^\d{2}:\d{2}$/),
+  timeOut: z.string().regex(/^\d{2}:\d{2}$/),
+})
+
+const putSchema = z.object({
+  userId: z.string().uuid(),
+  schedule: z.array(scheduleEntrySchema),
+})
 
 export async function GET(request: Request) {
   const supabase = await createClient()
@@ -44,20 +58,30 @@ export async function PUT(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { userId, schedule } = await request.json()
-  if (!userId || !Array.isArray(schedule)) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+  const raw = await request.json()
+  const result = putSchema.safeParse(raw)
+  if (!result.success) {
+    return NextResponse.json({ error: 'Invalid input', details: result.error.flatten() }, { status: 400 })
+  }
 
+  const { userId, schedule } = result.data
   const admin = getAdmin()
 
   // Preserve existing metadata, merge in the schedule
   const { data: authUser, error: fetchError } = await admin.auth.admin.getUserById(userId)
-  if (fetchError) return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  if (fetchError) {
+    logError('manager/schedules/PUT', fetchError)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   const existingMeta = authUser.user.user_metadata ?? {}
   const { error } = await admin.auth.admin.updateUserById(userId, {
     user_metadata: { ...existingMeta, schedule },
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('manager/schedules/PUT', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
   return NextResponse.json({ success: true })
 }

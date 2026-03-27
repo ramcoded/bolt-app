@@ -1,5 +1,7 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 function formatRelativeTime(iso: string) {
   const diff = Date.now() - new Date(iso).getTime()
@@ -23,7 +25,10 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(20)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('notifications/GET', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   const mapped = (data ?? []).map((n: any) => ({
     id:          n.id,

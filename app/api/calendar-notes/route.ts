@@ -1,17 +1,33 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { logError } from '@/lib/logger'
 
-export async function GET() {
+const putSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  content: z.string().max(5000),
+})
+
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const { searchParams } = new URL(request.url)
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '100', 10) || 100, 1), 500)
+  const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)
 
   const { data, error } = await supabase
     .from('calendar_notes')
     .select('date, content')
     .eq('user_id', user.id)
+    .range(offset, offset + limit - 1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('calendar-notes/GET', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }
 
@@ -20,7 +36,13 @@ export async function PUT(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { date, content } = await request.json()
+  const raw = await request.json()
+  const result = putSchema.safeParse(raw)
+  if (!result.success) {
+    return NextResponse.json({ error: 'Invalid input', details: result.error.flatten() }, { status: 400 })
+  }
+
+  const { date, content } = result.data
 
   const { data, error } = await supabase
     .from('calendar_notes')
@@ -28,6 +50,9 @@ export async function PUT(request: Request) {
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('calendar-notes/PUT', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
   return NextResponse.json(data)
 }

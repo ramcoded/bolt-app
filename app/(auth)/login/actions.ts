@@ -3,6 +3,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
+import { rateLimit } from '@/lib/rate-limit'
 
 function adminClient() {
   return createAdminClient(
@@ -13,6 +15,13 @@ function adminClient() {
 }
 
 export async function login(formData: FormData) {
+  // Rate limit: 5 attempts per minute per IP
+  const headersList = await headers()
+  const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  if (!rateLimit(`login:${ip}`, 5, 60 * 1000)) {
+    return { error: 'Too many login attempts. Please try again later.' }
+  }
+
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signInWithPassword({
@@ -21,7 +30,7 @@ export async function login(formData: FormData) {
   })
 
   if (error) {
-    return { error: error.message }
+    return { error: 'Invalid email or password' }
   }
 
   const { data: profile } = await supabase

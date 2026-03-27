@@ -1,3 +1,4 @@
+import 'server-only'
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/lib/auth-context'

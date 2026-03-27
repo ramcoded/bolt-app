@@ -1,6 +1,8 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,7 +30,10 @@ export async function GET() {
     .select('id, name, avatar, role, department, online, last_seen')
     .order('name', { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('manager/members/GET', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   // Fetch auth users to determine invite status
   const admin = getAdmin()
@@ -61,7 +66,10 @@ export async function DELETE(request: Request) {
   // Delete profile first, then auth user
   await admin.from('profiles').delete().eq('id', id)
   const { error } = await admin.auth.admin.deleteUser(id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('manager/members/DELETE', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }
@@ -79,7 +87,10 @@ export async function PATCH(request: Request) {
 
   const admin = getAdmin()
   const { error } = await admin.from('profiles').update({ role }).eq('id', id)
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('manager/members/PATCH', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

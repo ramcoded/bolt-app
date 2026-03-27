@@ -6,6 +6,25 @@ import type { TeamMember, ChatMessage } from '@/lib/mock-data'
 import AvatarImage from '@/components/AvatarImage'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
+import { useToast } from '@/components/Toast'
+
+function playNotifSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    const ctx  = new AudioCtx()
+    const osc  = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    osc.frequency.setValueAtTime(880,  ctx.currentTime)
+    osc.frequency.setValueAtTime(1100, ctx.currentTime + 0.08)
+    gain.gain.setValueAtTime(0.25, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35)
+    osc.start(ctx.currentTime)
+    osc.stop(ctx.currentTime + 0.35)
+  } catch { /* audio blocked */ }
+}
 
 interface ChatPanelProps {
   member: TeamMember
@@ -22,7 +41,8 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
   const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const typingChannel = useRef<any>(null)
   const typingTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const { profile } = useAuth()
+  const { profile }  = useAuth()
+  const { addToast } = useToast()
 
   useEffect(() => {
     fetch(`/api/messages?with=${member.id}`)
@@ -85,6 +105,15 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
       read: false,
     })
 
+    const handleIncoming = (msg: ChatMessage, content: string) => {
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === msg.id)) return prev
+        playNotifSound()
+        addToast(member.name, content, 'message')
+        return [...prev, msg]
+      })
+    }
+
     const channel = supabase
       .channel(`inbox-${profile.id}`)
       .on(
@@ -92,17 +121,13 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${profile.id}` },
         (payload: any) => {
           if (payload.new.sender_id !== member.id) return
-          setMessages((prev) =>
-            prev.find((m) => m.id === payload.new.id) ? prev : [...prev, toMsg(payload.new)]
-          )
+          handleIncoming(toMsg(payload.new), payload.new.content)
         }
       )
       .on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
         if (payload.sender_id !== member.id || payload.receiver_id !== profile.id) return
         const msg = toMsg({ ...payload, created_at: payload.created_at ?? new Date().toISOString() })
-        setMessages((prev) =>
-          prev.find((m) => m.id === payload.id) ? prev : [...prev, msg]
-        )
+        handleIncoming(msg, payload.content)
       })
       .subscribe()
 

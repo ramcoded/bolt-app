@@ -1,17 +1,33 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { logError } from '@/lib/logger'
+
+const postSchema = z.object({
+  online: z.boolean(),
+})
 
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { online } = await request.json()
+  const raw = await request.json()
+  const result = postSchema.safeParse(raw)
+  if (!result.success) {
+    return NextResponse.json({ error: 'Invalid input', details: result.error.flatten() }, { status: 400 })
+  }
 
-  await supabase
+  const { error } = await supabase
     .from('profiles')
-    .update({ online: online ?? true, last_seen: new Date().toISOString() })
+    .update({ online: result.data.online, last_seen: new Date().toISOString() })
     .eq('id', user.id)
+
+  if (error) {
+    logError('presence/POST', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   return NextResponse.json({ success: true })
 }

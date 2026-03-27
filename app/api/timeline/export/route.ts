@@ -1,5 +1,7 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,7 +26,10 @@ export async function GET(request: Request) {
     .lte('date', to)
     .order('date', { ascending: true })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('timeline/export/GET', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')

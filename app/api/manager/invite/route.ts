@@ -1,6 +1,10 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { logError } from '@/lib/logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 function getAdmin() {
   return createAdminClient(
@@ -10,6 +14,13 @@ function getAdmin() {
   )
 }
 
+const postSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1).max(200),
+  role: z.enum(['manager', 'employee']),
+  department: z.string().max(200).nullable().optional(),
+})
+
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -18,10 +29,18 @@ export async function POST(request: Request) {
   const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { email, name, role, department } = await request.json()
-  if (!email || !name || !role) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
-  if (!['manager', 'employee'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  // Rate limit: 10 invites per hour per manager
+  if (!rateLimit(`invite:${user.id}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many invites. Please try again later.' }, { status: 429 })
+  }
 
+  const raw = await request.json()
+  const result = postSchema.safeParse(raw)
+  if (!result.success) {
+    return NextResponse.json({ error: 'Invalid input', details: result.error.flatten() }, { status: 400 })
+  }
+
+  const { email, name, role, department } = result.data
   const admin = getAdmin()
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
@@ -29,7 +48,10 @@ export async function POST(request: Request) {
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
   })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    logError('manager/invite/POST', error)
+    return NextResponse.json({ error: 'Failed to send invite' }, { status: 400 })
+  }
 
   // Pre-create profile so the member shows up immediately in the dashboard
   if (data.user) {

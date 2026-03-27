@@ -1,13 +1,15 @@
+import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { logError } from '@/lib/logger'
 
-function mapRecord(r: any) {
+function mapRecord(r: Record<string, unknown>) {
   return {
     id:       r.id,
     date:     r.date,
     timeIn:   r.time_in,
-    timeOut:  r.time_out ?? null,
-    duration: r.duration ?? null,
+    timeOut:  (r.time_out as string) ?? null,
+    duration: (r.duration as number) ?? null,
   }
 }
 
@@ -44,6 +46,9 @@ export async function PATCH(
     .select()
     .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    logError('time-records/[id]/PATCH', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
   return NextResponse.json(mapRecord(data))
 }
