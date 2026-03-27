@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Bell, CheckCheck, AlertCircle, ClipboardList } from 'lucide-react'
 import type { Notification } from '@/lib/mock-data'
+import { createClient } from '@/lib/supabase/client'
 
 const typeIcon = (type: string) => {
   if (type === 'task')     return <ClipboardList className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
@@ -10,24 +11,69 @@ const typeIcon = (type: string) => {
   return <AlertCircle className="w-3.5 h-3.5 text-blue-400" />
 }
 
+function formatRelativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1)  return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)  return `${hrs}h ago`
+  return `${Math.floor(hrs / 24)}d ago`
+}
+
 export default function NotificationsCard() {
   const [notifs, setNotifs] = useState<Notification[]>([])
 
-  useEffect(() => {
+  const fetchNotifs = () =>
     fetch('/api/notifications')
       .then((r) => r.json())
-      .then(setNotifs)
+      .then((data) => { if (Array.isArray(data)) setNotifs(data) })
+
+  useEffect(() => {
+    fetchNotifs()
+
+    // Realtime: push new notifications instantly
+    const supabase = createClient()
+    let channelRef: ReturnType<typeof supabase.channel> | null = null
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      channelRef = supabase
+        .channel(`notifications-${user.id}`)
+        .on('postgres_changes' as any, {
+          event: 'INSERT', schema: 'public', table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload: any) => {
+          const n = payload.new
+          setNotifs((prev) => [{
+            id:          n.id,
+            title:       n.title,
+            description: n.description,
+            type:        n.type,
+            read:        n.read,
+            time:        formatRelativeTime(n.created_at),
+          }, ...prev])
+        })
+        .subscribe()
+    })
+
+    return () => {
+      if (channelRef) supabase.removeChannel(channelRef)
+    }
   }, [])
 
   const unread = notifs.filter((n) => !n.read).length
 
   const markOne = async (id: string) => {
     setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)))
-    await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+    const res = await fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })
+    // Roll back if the DB update failed
+    if (!res.ok) setNotifs((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)))
   }
 
   const markAll = async () => {
     const unreadIds = notifs.filter((n) => !n.read).map((n) => n.id)
+    if (unreadIds.length === 0) return
     setNotifs((prev) => prev.map((n) => ({ ...n, read: true })))
     await Promise.all(unreadIds.map((id) => fetch(`/api/notifications/${id}/read`, { method: 'PATCH' })))
   }

@@ -25,12 +25,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <PresenceProvider>
-      <TimeRecordsProvider>
+    <PresenceProvider key={user?.id ?? 'guest'}>
+      <TimeRecordsProvider key={user?.id ?? 'guest'}>
         <ClientOnly>
           <NavBar />
         </ClientOnly>
-        <main className="min-h-[calc(100vh-4rem)] pb-16">
+        <main className="min-h-[calc(100vh-4rem)] pb-16" suppressHydrationWarning>
           <ClientOnly>{children}</ClientOnly>
         </main>
         <ClientOnly>

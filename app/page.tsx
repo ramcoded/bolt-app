@@ -3,6 +3,8 @@ import TimelineGraphCard  from '@/components/Dashboard/TimelineGraphCard'
 import OnlineMembersCard  from '@/components/Dashboard/OnlineMembersCard'
 import ReminderCard       from '@/components/Dashboard/ReminderCard'
 import NotificationsCard  from '@/components/Dashboard/NotificationsCard'
+import ScheduleCard       from '@/components/Dashboard/ScheduleCard'
+import TodayHoursCard    from '@/components/Dashboard/TodayHoursCard'
 
 export default function DashboardPage() {
   return (
@@ -10,6 +12,16 @@ export default function DashboardPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-white">Dashboard</h1>
         <p className="text-sm text-white/40 mt-1">Welcome back — here&apos;s your overview.</p>
+      </div>
+
+      {/* Schedule bar + today's mini card side by side */}
+      <div className="mb-5 flex gap-4 items-stretch">
+        <div className="flex-1 min-w-0">
+          <ScheduleCard />
+        </div>
+        <div className="flex-shrink-0 w-44">
+          <TodayHoursCard />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -37,6 +49,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-1">
           <NotificationsCard />
         </div>
+
       </div>
     </div>
   )

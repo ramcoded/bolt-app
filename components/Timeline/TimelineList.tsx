@@ -5,7 +5,7 @@ import { TimeRecord } from '@/lib/mock-data'
 import { formatDate, formatDuration } from '@/lib/time-utils'
 import { useTimeRecords } from '@/lib/time-records-context'
 import SortControls, { SortField, SortDir } from './SortControls'
-import { Clock, LogIn, LogOut, Timer } from 'lucide-react'
+import { Clock, LogIn, LogOut, Timer, Download } from 'lucide-react'
 import ScheduleCard from './ScheduleCard'
 
 const MONTHS = [
@@ -18,7 +18,28 @@ export default function TimelineList() {
   const [dir,         setDir]         = useState<SortDir>('desc')
   const [filterYear,  setFilterYear]  = useState<number | null>(null)
   const [filterMonth, setFilterMonth] = useState<number | null>(null)
+  const [exporting,   setExporting]   = useState(false)
   const { records } = useTimeRecords()
+
+  const now = new Date()
+  const exportYear  = filterYear  ?? now.getFullYear()
+  const exportMonth = filterMonth !== null ? filterMonth + 1 : now.getMonth() + 1
+
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const url = `/api/timeline/export?year=${exportYear}&month=${exportMonth}`
+      const res = await fetch(url)
+      const blob = await res.blob()
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `timeline-${exportYear}-${String(exportMonth).padStart(2, '0')}.csv`
+      a.click()
+      URL.revokeObjectURL(a.href)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const years = Array.from(new Set(records.map((r) => parseInt(r.date.slice(0, 4))))).sort((a, b) => b - a)
 
@@ -72,7 +93,19 @@ export default function TimelineList() {
           </span>
         </div>
 
-        <SortControls field={field} dir={dir} onChange={(f, d) => { setField(f); setDir(d) }} />
+        <div className="flex items-center gap-2">
+          <SortControls field={field} dir={dir} onChange={(f, d) => { setField(f); setDir(d) }} />
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/50 hover:text-white transition-all disabled:opacity-40"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+            title={`Export ${new Date(exportYear, exportMonth - 1).toLocaleString('en-US', { month: 'long' })} ${exportYear} as CSV`}
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? 'Exporting…' : 'Export CSV'}
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">

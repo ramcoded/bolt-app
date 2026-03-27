@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { User, LogOut, ChevronDown, Shield } from 'lucide-react'
+import { User, LogOut, ChevronDown, Shield, Settings } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import AvatarImage from '@/components/AvatarImage'
 
@@ -79,6 +79,11 @@ export default function ProfileDropdown() {
                 Manager Dashboard
               </Link>
             )}
+            <Link href="/settings" onClick={() => setOpen(false)}
+              className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:text-white hover:bg-white/6 transition-colors">
+              <Settings className="w-4 h-4" />
+              Settings
+            </Link>
           </div>
 
           <div className="py-1" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>

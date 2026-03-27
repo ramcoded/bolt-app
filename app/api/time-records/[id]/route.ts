@@ -33,7 +33,8 @@ export async function PATCH(
   const timeOut = now.toTimeString().slice(0, 5)
   const [inH, inM]   = record.time_in.split(':').map(Number)
   const [outH, outM] = timeOut.split(':').map(Number)
-  const duration = outH * 60 + outM - (inH * 60 + inM)
+  let duration = outH * 60 + outM - (inH * 60 + inM)
+  if (duration < 0) duration += 24 * 60 // handle midnight crossover
 
   const { data, error } = await supabase
     .from('time_records')

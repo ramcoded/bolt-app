@@ -23,7 +23,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Redirect unauthenticated users to login
-  if (!user && !pathname.startsWith('/login')) {
+  if (!user && !pathname.startsWith('/login') && !pathname.startsWith('/set-password')) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

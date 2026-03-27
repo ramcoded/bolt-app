@@ -12,15 +12,20 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 type DayEntry = { day: string; hours: number }
 
 function buildWeeklyHours(records: { date: string; duration: number | null }[]): DayEntry[] {
+  // Anchor to Sunday of the current calendar week
+  const today = new Date()
+  const sunday = new Date(today)
+  sunday.setDate(today.getDate() - today.getDay())
+
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (6 - i))
-    const year  = d.getFullYear()
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day   = String(d.getDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-    const rec  = records.find((r) => r.date === dateStr)
-    const hours = rec?.duration ? Math.round((rec.duration / 60) * 100) / 100 : 0
+    const d = new Date(sunday)
+    d.setDate(sunday.getDate() + i)
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+    // Sum all records for this date (handles multiple sessions per day)
+    const dayMins = records
+      .filter((r) => r.date === dateStr && (r.duration ?? 0) > 0)
+      .reduce((sum, r) => sum + (r.duration ?? 0), 0)
+    const hours = Math.max(0, Math.round((dayMins / 60) * 100) / 100)
     return { day: DAY_LABELS[d.getDay()], hours }
   })
 }
@@ -30,7 +35,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="glass-card px-3 py-2 text-xs">
         <p className="text-white/50">{label}</p>
-        <p className="font-semibold" style={{ color: '#6366f1' }}>{payload[0].value}h logged</p>
+        <p className="font-semibold" style={{ color: '#6366f1' }}>{payload[0].value}h productive</p>
       </div>
     )
   }
@@ -51,8 +56,8 @@ export default function TimelineGraphCard() {
     <div className="glass-card p-5 h-full">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-sm font-semibold text-white">Weekly Overview</h2>
-          <p className="text-xs text-white/40 mt-0.5">Hours logged this week</p>
+          <h2 className="text-sm font-semibold text-white">Productive Hours</h2>
+          <p className="text-xs text-white/40 mt-0.5">Hours actively worked this week</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <TrendingUp className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
@@ -70,7 +75,13 @@ export default function TimelineGraphCard() {
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" />
           <XAxis dataKey="day" tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
-          <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }} axisLine={false} tickLine={false} />
+          <YAxis
+            tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            reversed={false}
+            domain={[0, (dataMax: number) => Math.max(dataMax, 1)]}
+          />
           <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(79,70,229,0.3)', strokeWidth: 1 }} />
           <Area
             type="monotone"

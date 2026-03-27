@@ -5,7 +5,7 @@ interface AvatarImageProps {
 }
 
 export default function AvatarImage({ src, alt = '', fallback = '?' }: AvatarImageProps) {
-  if (src?.startsWith('http')) {
+  if (src?.startsWith('http') || src?.startsWith('data:')) {
     return (
       <img
         src={src}

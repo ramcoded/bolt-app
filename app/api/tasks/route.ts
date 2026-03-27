@@ -68,5 +68,22 @@ export async function POST(request: Request) {
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Notify the assigned user
+  if (assigned_to) {
+    const { data: assigner } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', user.id)
+      .single()
+    await supabase.from('notifications').insert({
+      user_id:     assigned_to,
+      type:        'task',
+      title:       `New task assigned: ${title}`,
+      description: `${assigner?.name ?? 'Manager'} assigned you a task due ${data.date}.`,
+      read:        false,
+    })
+  }
+
   return NextResponse.json(mapTask(data))
 }

@@ -34,10 +34,11 @@ export default function ChatTabs() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [members,    setMembers]    = useState<TeamMember[]>([])
   const [mutedIds,   setMutedIds]   = useState<Set<string>>(new Set())
-  const membersRef   = useRef<TeamMember[]>([])
-  const openChatsRef = useRef<OpenChat[]>([])
-  const mutedIdsRef  = useRef<Set<string>>(new Set())
-  const channelRef   = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const membersRef        = useRef<TeamMember[]>([])
+  const openChatsRef      = useRef<OpenChat[]>([])
+  const mutedIdsRef       = useRef<Set<string>>(new Set())
+  const channelRef        = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const handleIncomingRef = useRef<typeof handleIncoming | null>(null)
   const { profile }  = useAuth()
   const onlineIds    = useOnlineIds()
 
@@ -127,6 +128,9 @@ export default function ChatTabs() {
     }
   }
 
+  // Always keep ref pointing at latest handleIncoming so the subscription closure never goes stale
+  handleIncomingRef.current = handleIncoming
+
   // Realtime: subscribe to inbox channel for both postgres_changes AND broadcast
   useEffect(() => {
     if (!profile?.id) return
@@ -135,12 +139,12 @@ export default function ChatTabs() {
 
     const channel = supabase
       .channel(`inbox-${myId}`)
-      // Primary: postgres_changes (requires Supabase realtime enabled on messages table)
+      // Primary: postgres_changes scoped to this user as receiver
       .on(
         'postgres_changes' as any,
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${myId}` },
         (payload: any) => {
-          handleIncoming({
+          handleIncomingRef.current?.({
             id:          payload.new.id,
             sender_id:   payload.new.sender_id,
             receiver_id: payload.new.receiver_id,
@@ -152,7 +156,7 @@ export default function ChatTabs() {
       // Fallback: broadcast pushed by the sender after their API call succeeds.
       // Works regardless of postgres_changes / replication configuration.
       .on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
-        handleIncoming({
+        handleIncomingRef.current?.({
           id:          payload.id,
           sender_id:   payload.sender_id,
           receiver_id: payload.receiver_id,
@@ -230,7 +234,7 @@ export default function ChatTabs() {
   const activeChats    = openChats.filter((c) => !c.minimized)
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex items-end gap-3">
+    <div className="fixed bottom-0 right-6 z-50 flex items-end gap-3">
 
       {/* Active (non-minimized) chat windows */}
       {activeChats.map((chat) => (
@@ -249,7 +253,7 @@ export default function ChatTabs() {
       ))}
 
       {/* FAB + minimized avatars + picker */}
-      <div className="relative flex-shrink-0">
+      <div className="relative flex-shrink-0 mb-6">
 
         {/* Minimized chat avatars stacked above FAB */}
         {minimizedChats.length > 0 && (
@@ -259,7 +263,7 @@ export default function ChatTabs() {
                 key={chat.member.id}
                 onClick={() => toggleMin(chat.member.id)}
                 title={chat.member.name}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white transition-all duration-200 hover:scale-110"
+                className="w-10 h-10 rounded-full flex items-center justify-center text-xs font-bold text-white overflow-hidden transition-all duration-200 hover:scale-110"
                 style={{
                   background: 'linear-gradient(135deg, rgba(79,70,229,0.9) 0%, rgba(99,102,241,0.8) 100%)',
                   border:     '2px solid rgba(99,102,241,0.7)',

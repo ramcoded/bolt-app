@@ -53,7 +53,7 @@ export function TimeRecordsProvider({ children }: { children: ReactNode }) {
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
       channelRef = supabase
-        .channel('my-time-records-rt')
+        .channel(`time-records-${user.id}`)
         .on('postgres_changes' as any, {
           event: 'INSERT', schema: 'public', table: 'time_records',
           filter: `user_id=eq.${user.id}`,

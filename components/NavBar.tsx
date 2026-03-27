@@ -12,12 +12,11 @@ import { useTimeRecords } from '@/lib/time-records-context'
 import { useAuth } from '@/lib/auth-context'
 
 const navLinks = [
-  { href: '/',          label: 'Dashboard' },
-  { href: '/timeline',  label: 'Timeline'  },
-  { href: '/calendar',  label: 'Calendar'  },
-  { href: '/tasks',     label: 'Tasks'     },
-  { href: '/team',      label: 'Team'      },
-  { href: '/settings',  label: 'Settings'  },
+  { href: '/',         label: 'Dashboard' },
+  { href: '/timeline', label: 'Timeline'  },
+  { href: '/calendar', label: 'Calendar'  },
+  { href: '/tasks',    label: 'Tasks'     },
+  { href: '/team',     label: 'Team'      },
 ]
 
 export default function NavBar() {
