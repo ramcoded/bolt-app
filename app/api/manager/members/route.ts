@@ -31,16 +31,13 @@ export async function GET() {
   const me = await getManagerTeam(supabase, user.id)
   if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  let query = supabase
+  if (!me.team_id) return NextResponse.json({ members: [] })
+
+  const { data: profiles, error } = await supabase
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
+    .eq('team_id', me.team_id)
     .order('name', { ascending: true })
-
-  if (me.team_id) {
-    query = query.eq('team_id', me.team_id)
-  }
-
-  const { data: profiles, error } = await query
 
   if (error) {
     logError('manager/members/GET', error)

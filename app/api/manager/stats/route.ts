@@ -31,18 +31,20 @@ export async function GET() {
       )
     : supabase
 
-  // All employees in the same team
-  let empQuery = db
+  if (!me.team_id) {
+    return NextResponse.json({
+      summary: { totalEmployees: 0, totalOnline: 0, totalClockedIn: 0, totalTodayMins: 0, totalWeekMins: 0 },
+      employees: [],
+    })
+  }
+
+  // All members in the same team
+  const { data: employees } = await db
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
     .eq('role', 'member')
+    .eq('team_id', me.team_id)
     .order('name', { ascending: true })
-
-  if (me.team_id) {
-    empQuery = empQuery.eq('team_id', me.team_id)
-  }
-
-  const { data: employees } = await empQuery
 
   // Today's time records for all employees
   const today = new Date().toISOString().slice(0, 10)

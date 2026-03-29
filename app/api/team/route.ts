@@ -38,17 +38,14 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  let query = db
+  if (!me?.team_id) return NextResponse.json([])
+
+  const { data, error } = await db
     .from('profiles')
     .select('id, name, role, avatar, online, last_seen')
     .neq('id', user.id)
+    .eq('team_id', me.team_id)
     .order('name', { ascending: true })
-
-  if (me?.team_id) {
-    query = query.eq('team_id', me.team_id)
-  }
-
-  const { data, error } = await query
 
   if (error) {
     logError('team/GET', error)
