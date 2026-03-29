@@ -15,7 +15,7 @@ export default function ProfileDropdown() {
 
   const name   = profile?.name   ?? user?.email ?? 'User'
   const avatar = profile?.avatar ?? name.slice(0, 2).toUpperCase()
-  const role   = profile?.role   ?? 'employee'
+  const role   = profile?.role   ?? 'member'
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {

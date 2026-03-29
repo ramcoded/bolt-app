@@ -35,7 +35,7 @@ export async function GET() {
   let empQuery = db
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
-    .eq('role', 'employee')
+    .eq('role', 'member')
     .order('name', { ascending: true })
 
   if (me.team_id) {

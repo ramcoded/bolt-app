@@ -52,7 +52,7 @@ export async function PATCH(
     // Whitelist: employees may only toggle completed
     const allowedKeys = Object.keys(result.data).filter(k => k === 'completed')
     if (allowedKeys.length === 0 || Object.keys(result.data).length !== allowedKeys.length) {
-      return NextResponse.json({ error: 'Forbidden: employees can only update completed status' }, { status: 403 })
+      return NextResponse.json({ error: 'Forbidden: members can only update completed status' }, { status: 403 })
     }
   }
 

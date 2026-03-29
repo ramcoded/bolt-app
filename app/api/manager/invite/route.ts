@@ -17,7 +17,7 @@ function getAdmin() {
 const postSchema = z.object({
   email: z.string().email(),
   name: z.string().min(1).max(200),
-  role: z.enum(['manager', 'employee']),
+  role: z.enum(['manager', 'member']),
   department: z.string().max(200).nullable().optional(),
 })
 

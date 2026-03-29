@@ -11,7 +11,7 @@ type Member = {
   id: string
   name: string
   avatar: string
-  role: 'manager' | 'employee'
+  role: 'manager' | 'member'
   department: string | null
 }
 

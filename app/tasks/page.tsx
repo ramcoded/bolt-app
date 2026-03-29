@@ -78,7 +78,7 @@ export default function TasksPage() {
     if (isManager) {
       fetch('/api/team')
         .then((r) => r.json())
-        .then((data) => setEmployees(data.filter((m: any) => m.role === 'employee')))
+        .then((data) => setEmployees(data.filter((m: any) => m.role === 'member')))
     }
   }, [isManager])
 

@@ -19,7 +19,7 @@ function getAdmin() {
 export const metadata: Metadata = {
   title: 'BOLT',
   description: 'Team time tracking and collaboration',
-  icons: { icon: '/favicon.svg' },
+  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }] },
 }
 
 // Tells Dark Reader the site is already dark — prevents it from injecting
@@ -55,7 +55,7 @@ export default async function RootLayout({
       const admin = getAdmin()
       const { data: created } = await admin
         .from('profiles')
-        .insert({ id: user.id, name, avatar: name.slice(0, 2).toUpperCase(), role: 'employee' })
+        .insert({ id: user.id, name, avatar: name.slice(0, 2).toUpperCase(), role: 'member' })
         .select()
         .single()
       profile = created

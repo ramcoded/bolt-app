@@ -58,8 +58,8 @@ export async function GET(request: Request) {
 
   let query = supabase.from('tasks').select('*').order('date', { ascending: true }).range(offset, offset + limit - 1)
 
-  if (profile?.role === 'employee') {
-    // Employees only see tasks assigned to them
+  if (profile?.role === 'member') {
+    // Members only see tasks assigned to them
     query = query.eq('assigned_to', user.id)
   } else if (profile?.role === 'manager' && profile.team_id) {
     // Managers only see tasks for their team members or tasks they created unassigned

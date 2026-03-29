@@ -30,14 +30,14 @@ type Member = {
   id: string
   name: string
   avatar: string
-  role: 'manager' | 'employee'
+  role: 'manager' | 'member'
   department: string | null
   status?: 'pending' | 'joined'
 }
 
-const ROLES: { value: 'manager' | 'employee'; label: string }[] = [
-  { value: 'manager',  label: 'Manager'  },
-  { value: 'employee', label: 'Employee' },
+const ROLES: { value: 'manager' | 'member'; label: string }[] = [
+  { value: 'manager', label: 'Manager' },
+  { value: 'member',  label: 'Member'  },
 ]
 
 type Summary = {
@@ -74,7 +74,7 @@ export default function ManagerDashboard() {
   const [members,        setMembers]        = useState<Member[]>([])
   const [membersLoading, setMembersLoading] = useState(true)
   const [showInvite,     setShowInvite]     = useState(false)
-  const [inviteForm,     setInviteForm]     = useState({ email: '', name: '', role: 'employee' as 'manager' | 'employee', department: '' })
+  const [inviteForm,     setInviteForm]     = useState({ email: '', name: '', role: 'member' as 'manager' | 'member', department: '' })
   const [inviting,       setInviting]       = useState(false)
   const [inviteError,    setInviteError]    = useState('')
   const [inviteSuccess,  setInviteSuccess]  = useState(false)
@@ -149,7 +149,7 @@ export default function ManagerDashboard() {
       const data = await res.json()
       if (!res.ok) { setInviteError(data.error ?? 'Something went wrong'); return }
       setInviteSuccess(true)
-      setInviteForm({ email: '', name: '', role: 'employee', department: '' })
+      setInviteForm({ email: '', name: '', role: 'member', department: '' })
       loadMembers()
       setTimeout(() => { setShowInvite(false); setInviteSuccess(false) }, 2000)
     } finally {
@@ -174,7 +174,7 @@ export default function ManagerDashboard() {
     }
   }
 
-  const handleRoleChange = async (memberId: string, newRole: 'manager' | 'employee') => {
+  const handleRoleChange = async (memberId: string, newRole: 'manager' | 'member') => {
     setSavingRole(memberId)
     setEditingId(null)
     try {
@@ -205,7 +205,7 @@ export default function ManagerDashboard() {
 
   const statCards = summary
     ? [
-        { label: 'Total Employees', value: summary.totalEmployees,      icon: Users,      color: '#6366f1' },
+        { label: 'Total Members',   value: summary.totalEmployees,      icon: Users,      color: '#6366f1' },
         { label: 'Online Now',      value: totalOnlineNow,              icon: Zap,        color: '#4ade80' },
         { label: 'Clocked In',      value: summary.totalClockedIn,      icon: Clock,      color: '#f59e0b' },
         { label: "Today's Hours",   value: fmt(summary.totalTodayMins), icon: TrendingUp, color: '#6366f1' },
@@ -229,7 +229,7 @@ export default function ManagerDashboard() {
             className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
-            Employee view
+            Member view
           </Link>
           <span className="text-white/15">·</span>
           <div className="flex items-center gap-2">
@@ -286,7 +286,7 @@ export default function ManagerDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-white">Team Overview</h1>
             <p className="text-sm text-white/35 mt-0.5">
-              Real-time view of all employees · {today}
+              Real-time view of all members · {today}
             </p>
           </div>
 
@@ -356,7 +356,7 @@ export default function ManagerDashboard() {
             className="px-5 py-4 flex items-center justify-between"
             style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
           >
-            <h2 className="text-sm font-semibold text-white">Employees</h2>
+            <h2 className="text-sm font-semibold text-white">Members</h2>
             <span className="text-xs text-white/30">{employees.length} members</span>
           </div>
 
@@ -373,7 +373,7 @@ export default function ManagerDashboard() {
               ))}
             </div>
           ) : employees.length === 0 ? (
-            <p className="text-sm text-white/25 text-center py-10">No employees found</p>
+            <p className="text-sm text-white/25 text-center py-10">No members found</p>
           ) : (
             <div className="divide-y divide-white/[0.05]">
               {employeesWithPresence.map((emp) => (
@@ -593,7 +593,7 @@ export default function ManagerDashboard() {
                         }}
                       >
                         {member.role === 'manager' ? <Shield className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                        {member.role === 'manager' ? 'Manager' : 'Employee'}
+                        {member.role === 'manager' ? 'Manager' : 'Member'}
                       </div>
                     ) : (
                       <button
@@ -606,7 +606,7 @@ export default function ManagerDashboard() {
                         }}
                       >
                         {member.role === 'manager' ? <Shield className="w-3 h-3" /> : <User className="w-3 h-3" />}
-                        {member.role === 'manager' ? 'Manager' : 'Employee'}
+                        {member.role === 'manager' ? 'Manager' : 'Member'}
                         <ChevronDown className="w-3 h-3 opacity-60" />
                       </button>
                     )}
@@ -719,11 +719,11 @@ export default function ManagerDashboard() {
                       <label className="block text-xs text-white/50 mb-1.5">Role</label>
                       <select
                         value={inviteForm.role}
-                        onChange={(e) => setInviteForm(f => ({ ...f, role: e.target.value as 'manager' | 'employee' }))}
+                        onChange={(e) => setInviteForm(f => ({ ...f, role: e.target.value as 'manager' | 'member' }))}
                         className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none focus:ring-1"
                         style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}
                       >
-                        <option value="employee">Employee</option>
+                        <option value="member">Member</option>
                         <option value="manager">Manager</option>
                       </select>
                     </div>

@@ -6,7 +6,7 @@ import type { User } from '@supabase/supabase-js'
 export type Profile = {
   id: string
   name: string
-  role: 'manager' | 'employee'
+  role: 'manager' | 'member'
   department: string | null
   avatar: string | null
   online: boolean

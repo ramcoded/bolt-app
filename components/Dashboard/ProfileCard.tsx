@@ -14,7 +14,7 @@ export default function ProfileCard() {
   const { profile } = useAuth()
 
   const name   = profile?.name   ?? 'User'
-  const role   = profile?.role   ?? 'employee'
+  const role   = profile?.role   ?? 'member'
   const avatar = profile?.avatar ?? name.slice(0, 2).toUpperCase()
 
   useEffect(() => {

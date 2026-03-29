@@ -106,7 +106,7 @@ export async function PATCH(request: Request) {
 
   const { id, role } = await request.json()
   if (!id || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-  if (!['manager', 'employee'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  if (!['manager', 'member'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   if (id === user.id) return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
 
   // Ensure target is in the same team
