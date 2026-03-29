@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Bell, CheckCheck, AlertCircle, ClipboardList, MessageSquare } from 'lucide-react'
 import type { Notification } from '@/lib/mock-data'
 import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
 const typeIcon = (type: string) => {
   if (type === 'task')     return <ClipboardList className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
@@ -37,7 +38,7 @@ export default function NotificationsCard() {
     const supabase = createClient()
     let channelRef: ReturnType<typeof supabase.channel> | null = null
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
       if (!user) return
       channelRef = supabase
         .channel(`notifications-${user.id}`)

@@ -18,13 +18,13 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState<{ userId: string }>()
+        const state = channel.presenceState() as Record<string, { userId: string }[]>
         const ids = new Set(
           Object.values(state).flat().map((p: any) => p.userId)
         )
         setOnlineIds(ids)
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           await channel.track({ userId: user.id })
         }

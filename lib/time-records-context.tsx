@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { TimeRecord } from './mock-data'
 import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
 type TimeRecordsCtx = {
   records:  TimeRecord[]
@@ -50,7 +51,7 @@ export function TimeRecordsProvider({ children }: { children: ReactNode }) {
     const supabase = createClient()
     let channelRef: ReturnType<typeof supabase.channel> | null = null
 
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user } }: { data: { user: User | null } }) => {
       if (!user) return
       channelRef = supabase
         .channel(`time-records-${user.id}`)
