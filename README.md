@@ -97,6 +97,21 @@ This project is under active development. If you're contributing:
 
 ---
 
+## Development Approach
+
+This project was built using an agentic development workflow powered by [Claude Code](https://claude.ai/code) (Anthropic) with the [oh-my-claudecode](https://github.com/oh-my-claudecode/oh-my-claudecode) (OMC) orchestration layer.
+
+Rather than writing code manually, features were developed through conversational prompts and autonomous multi-agent execution. The OMC autopilot skill handled the full cycle — requirements analysis, technical planning, parallel implementation, code review, and validation — for each feature.
+
+Key aspects of the workflow:
+
+- **Autopilot mode** — end-to-end feature delivery from a plain-language description
+- **Parallel agent execution** — independent tasks (exploration, implementation, review) ran concurrently via specialized subagents (architect, executor, code-reviewer, security-reviewer)
+- **Iterative refinement** — multi-perspective validation with automatic fix cycles before marking work complete
+- **Context-aware edits** — agents read existing code before making changes, preserving patterns and architecture
+
+---
+
 ## License
 
 Private — internal use only.
