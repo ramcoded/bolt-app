@@ -6,6 +6,7 @@ import {
   Users, Clock, TrendingUp, Zap,
   ArrowLeft, RefreshCw, CheckCircle2, Circle,
   UserPlus, X, Shield, User, ChevronDown, Loader2, Trash2, CalendarDays,
+  Pencil, Check,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
@@ -63,6 +64,12 @@ export default function ManagerDashboard() {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [today, setToday] = useState('')
 
+  // Team name state
+  const [teamName,       setTeamName]       = useState<string | null>(null)
+  const [editingTeam,    setEditingTeam]    = useState(false)
+  const [teamNameInput,  setTeamNameInput]  = useState('')
+  const [savingTeam,     setSavingTeam]     = useState(false)
+
   // Members management state
   const [members,        setMembers]        = useState<Member[]>([])
   const [membersLoading, setMembersLoading] = useState(true)
@@ -80,13 +87,37 @@ export default function ManagerDashboard() {
     setToday(new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }))
   }, [])
 
+  const loadTeamName = async () => {
+    const res  = await fetch('/api/team/name')
+    const data = await res.json()
+    setTeamName(data.name ?? null)
+  }
+
+  const saveTeamName = async () => {
+    if (!teamNameInput.trim()) return
+    setSavingTeam(true)
+    try {
+      const res = await fetch('/api/team/name', {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ name: teamNameInput.trim() }),
+      })
+      if (res.ok) {
+        setTeamName(teamNameInput.trim())
+        setEditingTeam(false)
+      }
+    } finally {
+      setSavingTeam(false)
+    }
+  }
+
   const load = async () => {
     setLoading(true)
     try {
       const res  = await fetch('/api/manager/stats')
       const data = await res.json()
-      setSummary(data.summary)
-      setEmployees(data.employees)
+      setSummary(data.summary ?? null)
+      setEmployees(data.employees ?? [])
       setLastRefresh(new Date())
     } finally {
       setLoading(false)
@@ -163,6 +194,7 @@ export default function ManagerDashboard() {
   useEffect(() => {
     load()
     loadMembers()
+    loadTeamName()
     const interval = setInterval(load, 30000)
     return () => clearInterval(interval)
   }, [])
@@ -249,12 +281,53 @@ export default function ManagerDashboard() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
 
-        {/* Page title */}
-        <div>
-          <h1 className="text-2xl font-bold text-white">Team Overview</h1>
-          <p className="text-sm text-white/35 mt-0.5">
-            Real-time view of all employees · {today}
-          </p>
+        {/* Page title + team name */}
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold text-white">Team Overview</h1>
+            <p className="text-sm text-white/35 mt-0.5">
+              Real-time view of all employees · {today}
+            </p>
+          </div>
+
+          {/* Team name editor */}
+          <div className="flex items-center gap-2">
+            {editingTeam ? (
+              <>
+                <input
+                  autoFocus
+                  value={teamNameInput}
+                  onChange={(e) => setTeamNameInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') saveTeamName(); if (e.key === 'Escape') setEditingTeam(false) }}
+                  className="px-3 py-1.5 rounded-xl text-sm text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(99,102,241,0.5)', minWidth: 160 }}
+                  maxLength={100}
+                />
+                <button
+                  onClick={saveTeamName}
+                  disabled={savingTeam}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-indigo-400 hover:bg-indigo-500/15 transition-all disabled:opacity-50"
+                >
+                  {savingTeam ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                </button>
+                <button
+                  onClick={() => setEditingTeam(false)}
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:bg-white/8 transition-all"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => { setTeamNameInput(teamName ?? ''); setEditingTeam(true) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/60 hover:text-white hover:bg-white/6 transition-all group"
+                style={{ border: '1px solid rgba(255,255,255,0.08)' }}
+              >
+                <span>{teamName ?? 'Name your team'}</span>
+                <Pencil className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Summary cards */}

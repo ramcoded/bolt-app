@@ -41,6 +41,7 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
   const channelRef    = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const typingChannel = useRef<any>(null)
   const typingTimer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const seenMsgIds    = useRef<Set<string>>(new Set())
   const { profile }  = useAuth()
   const { addToast } = useToast()
 
@@ -106,12 +107,11 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     })
 
     const handleIncoming = (msg: ChatMessage, content: string) => {
-      setMessages((prev) => {
-        if (prev.find((m) => m.id === msg.id)) return prev
-        playNotifSound()
-        addToast(member.name, content, 'message')
-        return [...prev, msg]
-      })
+      if (seenMsgIds.current.has(msg.id)) return
+      seenMsgIds.current.add(msg.id)
+      playNotifSound()
+      addToast(member.name, content, 'message')
+      setMessages((prev) => [...prev, msg])
     }
 
     const channel = supabase
@@ -147,6 +147,27 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     })
     const msg: ChatMessage = await res.json()
     setMessages((prev) => [...prev, msg])
+
+    // Broadcast to receiver's inbox channel so their ChatTabs fires sound + toast
+    if (profile?.id && member.id !== profile.id) {
+      const supabase = createClient()
+      const ch = supabase.channel(`inbox-${member.id}`)
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          ch.send({
+            type:    'broadcast',
+            event:   'new_message',
+            payload: {
+              id:          (msg as any).id,
+              sender_id:   profile.id,
+              receiver_id: member.id,
+              content:     text,
+              created_at:  new Date().toISOString(),
+            },
+          }).finally(() => { supabase.removeChannel(ch) })
+        }
+      })
+    }
   }
 
   return (

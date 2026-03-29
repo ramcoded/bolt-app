@@ -26,7 +26,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: me } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: me } = await supabase
+    .from('profiles')
+    .select('role, team_id')
+    .eq('id', user.id)
+    .single()
   if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Rate limit: 10 invites per hour per manager
@@ -41,10 +45,11 @@ export async function POST(request: Request) {
   }
 
   const { email, name, role, department } = result.data
+  const teamId = me?.team_id ?? null
   const admin = getAdmin()
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
-    data: { name, role, department: department || null },
+    data: { name, role, department: department || null, team_id: teamId },
     redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin}/set-password`,
   })
 
@@ -53,15 +58,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to send invite' }, { status: 400 })
   }
 
-  // Pre-create profile so the member shows up immediately in the dashboard
+  // Pre-create profile so the member shows up immediately in the dashboard,
+  // and assign them to the same team as the inviting manager.
   if (data.user) {
     await admin.from('profiles').upsert({
-      id: data.user.id,
+      id:         data.user.id,
       name,
       role,
       department: department || null,
-      avatar: name.slice(0, 2).toUpperCase(),
-      online: false,
+      avatar:     name.slice(0, 2).toUpperCase(),
+      online:     false,
+      team_id:    teamId,
     })
   }
 

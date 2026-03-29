@@ -16,8 +16,14 @@ function getAdmin() {
 }
 
 async function verifyManager(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase.from('profiles').select('role').eq('id', userId).single()
-  return data?.role === 'manager'
+  const { data } = await supabase.from('profiles').select('role, team_id').eq('id', userId).single()
+  return data ?? null
+}
+
+async function isInSameTeam(supabase: Awaited<ReturnType<typeof createClient>>, managerTeamId: string | null, targetUserId: string) {
+  if (!managerTeamId) return true // no team isolation configured
+  const { data } = await supabase.from('profiles').select('team_id').eq('id', targetUserId).single()
+  return data?.team_id === managerTeamId
 }
 
 const scheduleEntrySchema = z.object({
@@ -35,11 +41,16 @@ export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const me = await verifyManager(supabase, user.id)
+  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
+
+  if (!(await isInSameTeam(supabase, me.team_id, userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const admin = getAdmin()
   const { data: authUser, error } = await admin.auth.admin.getUserById(userId)
@@ -56,7 +67,8 @@ export async function PUT(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  const me = await verifyManager(supabase, user.id)
+  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const raw = await request.json()
   const result = putSchema.safeParse(raw)
@@ -65,6 +77,10 @@ export async function PUT(request: Request) {
   }
 
   const { userId, schedule } = result.data
+
+  if (!(await isInSameTeam(supabase, me.team_id, userId))) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   const admin = getAdmin()
 
   // Preserve existing metadata, merge in the schedule

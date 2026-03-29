@@ -9,12 +9,20 @@ import { useAuth } from '@/lib/auth-context'
 
 export default function ProfileCard() {
   const [now, setNow] = useState<Date | null>(null)
+  const [teamName, setTeamName] = useState<string | null>(null)
   const { records } = useTimeRecords()
   const { profile } = useAuth()
 
   const name   = profile?.name   ?? 'User'
   const role   = profile?.role   ?? 'employee'
   const avatar = profile?.avatar ?? name.slice(0, 2).toUpperCase()
+
+  useEffect(() => {
+    fetch('/api/team/name')
+      .then((r) => r.json())
+      .then((d) => setTeamName(d.name ?? null))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const tick = () => setNow(new Date())
@@ -59,6 +67,9 @@ export default function ProfileCard() {
           <p className="text-xs text-white/50 mt-0.5 capitalize">{role}</p>
           {profile?.department && (
             <p className="text-[11px] text-white/25 mt-0.5">{profile.department}</p>
+          )}
+          {teamName && (
+            <p className="text-[11px] mt-0.5" style={{ color: '#818cf8' }}>{teamName}</p>
           )}
         </div>
 

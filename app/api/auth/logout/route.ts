@@ -18,7 +18,5 @@ export async function POST() {
       .eq('id', user.id)
   }
   await supabase.auth.signOut()
-  return NextResponse.redirect(
-    new URL('/login', process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000')
-  )
+  return NextResponse.json({ success: true })
 }

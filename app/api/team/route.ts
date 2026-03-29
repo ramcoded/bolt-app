@@ -31,11 +31,24 @@ export async function GET() {
       )
     : supabase
 
-  const { data, error } = await db
+  // Get current user's team
+  const { data: me } = await db
+    .from('profiles')
+    .select('team_id')
+    .eq('id', user.id)
+    .single()
+
+  let query = db
     .from('profiles')
     .select('id, name, role, avatar, online, last_seen')
     .neq('id', user.id)
     .order('name', { ascending: true })
+
+  if (me?.team_id) {
+    query = query.eq('team_id', me.team_id)
+  }
+
+  const { data, error } = await query
 
   if (error) {
     logError('team/GET', error)

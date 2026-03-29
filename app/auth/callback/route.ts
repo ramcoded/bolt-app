@@ -57,13 +57,37 @@ export async function GET(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } }
     )
+
+    let teamId: string | null = null
+
+    if (role === 'manager') {
+      // Each new manager gets their own team
+      const teamName = `${name.split(' ')[0]}'s Team`
+      const { data: team } = await admin
+        .from('teams')
+        .insert({ name: teamName })
+        .select('id')
+        .single()
+      teamId = team?.id ?? null
+
+      // Set created_by after we know the team id (profile doesn't exist yet so we
+      // update created_by after profile creation below)
+    }
+
     await admin.from('profiles').upsert({
-      id:     user.id,
+      id:      user.id,
       name,
       role,
-      avatar: name.slice(0, 2).toUpperCase(),
-      online: true,
+      avatar:  name.slice(0, 2).toUpperCase(),
+      online:  true,
+      team_id: teamId,
     })
+
+    // Back-fill created_by now that profile exists
+    if (teamId) {
+      await admin.from('teams').update({ created_by: user.id }).eq('id', teamId)
+    }
+
     destination = role === 'manager' ? '/manager/dashboard' : '/'
   } else {
     destination = profile.role === 'manager' ? '/manager/dashboard' : '/'

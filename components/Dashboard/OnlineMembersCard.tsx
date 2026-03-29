@@ -10,11 +10,13 @@ export default function OnlineMembersCard() {
   const { profile } = useAuth()
   const onlineIds   = useOnlineIds()
   const [members, setMembers] = useState<TeamMember[]>([])
+  const [loaded,  setLoaded]  = useState(false)
 
   useEffect(() => {
     fetch('/api/team', { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setMembers(data) })
+      .finally(() => setLoaded(true))
   }, [])
 
   // Include the current user as always-online at the top
@@ -93,8 +95,11 @@ export default function OnlineMembersCard() {
           </>
         )}
 
-        {members.length === 0 && (
-          <p className="text-xs text-white/25 text-center py-4">Loading team…</p>
+        {!loaded && members.length === 0 && (
+          <p className="text-xs text-white/25 text-center py-4">Loading…</p>
+        )}
+        {loaded && members.length === 0 && (
+          <p className="text-xs text-white/25 text-center py-4">No members yet — invite someone to get started.</p>
         )}
       </div>
     </div>

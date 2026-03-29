@@ -11,10 +11,10 @@ export async function GET() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Verify manager role
+  // Verify manager role and get team
   const { data: me } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, team_id')
     .eq('id', user.id)
     .single()
 
@@ -31,12 +31,18 @@ export async function GET() {
       )
     : supabase
 
-  // All employees
-  const { data: employees } = await db
+  // All employees in the same team
+  let empQuery = db
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
     .eq('role', 'employee')
     .order('name', { ascending: true })
+
+  if (me.team_id) {
+    empQuery = empQuery.eq('team_id', me.team_id)
+  }
+
+  const { data: employees } = await empQuery
 
   // Today's time records for all employees
   const today = new Date().toISOString().slice(0, 10)

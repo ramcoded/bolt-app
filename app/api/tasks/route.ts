@@ -52,15 +52,30 @@ export async function GET(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, team_id')
     .eq('id', user.id)
     .single()
 
   let query = supabase.from('tasks').select('*').order('date', { ascending: true }).range(offset, offset + limit - 1)
 
-  // Employees only see tasks assigned to them
   if (profile?.role === 'employee') {
+    // Employees only see tasks assigned to them
     query = query.eq('assigned_to', user.id)
+  } else if (profile?.role === 'manager' && profile.team_id) {
+    // Managers only see tasks for their team members or tasks they created unassigned
+    const { data: teamMembers } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('team_id', profile.team_id)
+    const memberIds = (teamMembers ?? []).map((m) => m.id)
+    if (memberIds.length > 0) {
+      query = query.or(
+        `assigned_to.in.(${memberIds.join(',')}),and(created_by.eq.${user.id},assigned_to.is.null)`
+      )
+    } else {
+      // No team members at all — only own unassigned tasks
+      query = query.eq('created_by', user.id).is('assigned_to', null)
+    }
   }
 
   const { data, error } = await query

@@ -11,6 +11,7 @@ export type Profile = {
   avatar: string | null
   online: boolean
   last_seen: string | null
+  team_id: string | null
 }
 
 type AuthContextType = {

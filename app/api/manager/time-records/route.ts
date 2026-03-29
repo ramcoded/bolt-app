@@ -23,7 +23,7 @@ export async function GET(request: Request) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, team_id')
     .eq('id', user.id)
     .single()
 
@@ -34,6 +34,15 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
+
+  // Verify the requested user belongs to the same team
+  if (profile.team_id) {
+    const { data: target } = await supabase
+      .from('profiles').select('team_id').eq('id', userId).single()
+    if (target?.team_id !== profile.team_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
 
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
   if (!uuidRegex.test(userId)) {

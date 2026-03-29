@@ -14,21 +14,33 @@ function getAdmin() {
   )
 }
 
-async function verifyManager(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
-  const { data } = await supabase.from('profiles').select('role').eq('id', userId).single()
-  return data?.role === 'manager'
+async function getManagerTeam(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
+  const { data } = await supabase
+    .from('profiles')
+    .select('role, team_id')
+    .eq('id', userId)
+    .single()
+  return data
 }
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-  const { data: profiles, error } = await supabase
+  const me = await getManagerTeam(supabase, user.id)
+  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  let query = supabase
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
     .order('name', { ascending: true })
+
+  if (me.team_id) {
+    query = query.eq('team_id', me.team_id)
+  }
+
+  const { data: profiles, error } = await query
 
   if (error) {
     logError('manager/members/GET', error)
@@ -55,11 +67,21 @@ export async function DELETE(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const me = await getManagerTeam(supabase, user.id)
+  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
   if (id === user.id) return NextResponse.json({ error: 'Cannot remove yourself' }, { status: 400 })
+
+  // Ensure target is in the same team
+  if (me.team_id) {
+    const { data: target } = await supabase.from('profiles').select('team_id').eq('id', id).single()
+    if (target?.team_id !== me.team_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
 
   const admin = getAdmin()
 
@@ -78,12 +100,22 @@ export async function PATCH(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  if (!(await verifyManager(supabase, user.id))) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+
+  const me = await getManagerTeam(supabase, user.id)
+  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   const { id, role } = await request.json()
   if (!id || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
   if (!['manager', 'employee'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
   if (id === user.id) return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
+
+  // Ensure target is in the same team
+  if (me.team_id) {
+    const { data: target } = await supabase.from('profiles').select('team_id').eq('id', id).single()
+    if (target?.team_id !== me.team_id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+  }
 
   const admin = getAdmin()
   const { error } = await admin.from('profiles').update({ role }).eq('id', id)
