@@ -34,7 +34,7 @@ export function TimeRecordsProvider({ children }: { children: ReactNode }) {
 
   // Initial fetch
   useEffect(() => {
-    fetch('/api/time-records')
+    fetch('/api/time-records?limit=500')
       .then((r) => r.json())
       .then((data: TimeRecord[]) => {
         const safe = Array.isArray(data) ? data : []

@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Rate limit: 10 invites per hour per manager
-  if (!rateLimit(`invite:${user.id}`, 10, 60 * 60 * 1000)) {
+  if (!await rateLimit(`invite:${user.id}`, 10, 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Too many invites. Please try again later.' }, { status: 429 })
   }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
   const { data, error } = await admin.auth.admin.inviteUserByEmail(email, {
     data: { name, role, department: department || null },
-    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/set-password`,
+    redirectTo: `${process.env.NEXT_PUBLIC_APP_URL ?? new URL(request.url).origin}/set-password`,
   })
 
   if (error) {

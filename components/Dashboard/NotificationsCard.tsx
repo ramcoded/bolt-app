@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Bell, CheckCheck, AlertCircle, ClipboardList } from 'lucide-react'
+import { Bell, CheckCheck, AlertCircle, ClipboardList, MessageSquare } from 'lucide-react'
 import type { Notification } from '@/lib/mock-data'
 import { createClient } from '@/lib/supabase/client'
 
 const typeIcon = (type: string) => {
   if (type === 'task')     return <ClipboardList className="w-3.5 h-3.5" style={{ color: '#6366f1' }} />
-  if (type === 'reminder') return <Bell className="w-3.5 h-3.5 text-amber-400" />
+  if (type === 'message')  return <MessageSquare  className="w-3.5 h-3.5 text-emerald-400" />
+  if (type === 'reminder') return <Bell           className="w-3.5 h-3.5 text-amber-400" />
   return <AlertCircle className="w-3.5 h-3.5 text-blue-400" />
 }
 
@@ -53,6 +54,13 @@ export default function NotificationsCard() {
             read:        n.read,
             time:        formatRelativeTime(n.created_at),
           }, ...prev])
+        })
+        .on('postgres_changes' as any, {
+          event: 'UPDATE', schema: 'public', table: 'notifications',
+          filter: `user_id=eq.${user.id}`,
+        }, (payload: any) => {
+          const n = payload.new
+          setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, read: n.read } : x))
         })
         .subscribe()
     })

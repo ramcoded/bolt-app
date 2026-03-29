@@ -1,4 +1,5 @@
 import { createClient }       from '@/lib/supabase/server'
+import { redirect }           from 'next/navigation'
 import ReminderBanner         from '@/components/Timeline/ReminderBanner'
 import TimelineList           from '@/components/Timeline/TimelineList'
 import ManagerTimelineTabs    from '@/components/Timeline/ManagerTimelineTabs'
@@ -6,6 +7,8 @@ import ManagerTimelineTabs    from '@/components/Timeline/ManagerTimelineTabs'
 export default async function TimelinePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) redirect('/login')
 
   let isManager = false
   if (user) {

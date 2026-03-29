@@ -1,8 +1,18 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
+import { rateLimit } from '@/lib/rate-limit'
+
+function adminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 function mapMessage(m: Record<string, unknown>, meId: string) {
   return {
@@ -63,6 +73,11 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Rate limit: 60 messages per minute per user
+  if (!await rateLimit(`messages:${user.id}`, 60, 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many messages. Please slow down.' }, { status: 429 })
+  }
+
   const raw = await request.json()
   const result = postSchema.safeParse(raw)
   if (!result.success) {
@@ -81,5 +96,28 @@ export async function POST(request: Request) {
     logError('messages/POST', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+
+  // Create a notification for the receiver (skip self-messages)
+  if (receiver_id !== user.id) {
+    try {
+      const { data: sender } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .single()
+
+      const senderName = sender?.name ?? 'Someone'
+      const preview    = content.length > 80 ? content.slice(0, 80) + '…' : content
+
+      await adminClient().from('notifications').insert({
+        user_id:     receiver_id,
+        title:       `New message from ${senderName}`,
+        description: preview,
+        type:        'message',
+        read:        false,
+      })
+    } catch { /* non-critical — message was still sent */ }
+  }
+
   return NextResponse.json(mapMessage(data, user.id))
 }

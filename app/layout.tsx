@@ -48,7 +48,8 @@ export default async function RootLayout({
       profile = data
     } else {
       // Profile row missing — create one (handles accounts created before the signup trigger)
-      const name = (user.user_metadata?.name as string | undefined)
+      const name = (user.user_metadata?.full_name as string | undefined)
+        ?? (user.user_metadata?.name as string | undefined)
         ?? user.email
         ?? 'User'
       const admin = getAdmin()

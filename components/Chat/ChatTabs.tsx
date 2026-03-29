@@ -38,6 +38,8 @@ export default function ChatTabs() {
   const membersRef        = useRef<TeamMember[]>([])
   const openChatsRef      = useRef<OpenChat[]>([])
   const mutedIdsRef       = useRef<Set<string>>(new Set())
+  // Tracks member IDs currently being fetched to prevent duplicate windows on rapid clicks
+  const openingRef        = useRef<Set<string>>(new Set())
   const channelRef        = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const handleIncomingRef = useRef<typeof handleIncoming | null>(null)
   const { profile }  = useAuth()
@@ -176,13 +178,28 @@ export default function ChatTabs() {
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openChat = async (member: TeamMember) => {
-    const already = openChats.find((c) => c.member.id === member.id)
+    // Prevent duplicate windows from rapid clicks
+    if (openingRef.current.has(member.id)) return
+    const already = openChatsRef.current.find((c) => c.member.id === member.id)
     if (already) {
       setOpenChats((prev) => prev.map((c) => c.member.id === member.id ? { ...c, minimized: false } : c))
-    } else {
+      setPickerOpen(false)
+      return
+    }
+    openingRef.current.add(member.id)
+    try {
       const res  = await fetch(`/api/messages?with=${member.id}`)
-      const msgs: ChatMessage[] = await res.json()
-      setOpenChats((prev) => [...prev, { member, minimized: false, messages: msgs }])
+      const data = await res.json()
+      const msgs: ChatMessage[] = Array.isArray(data) ? data : []
+      setOpenChats((prev) => {
+        // Check again in case it was opened while fetching
+        if (prev.find((c) => c.member.id === member.id)) {
+          return prev.map((c) => c.member.id === member.id ? { ...c, minimized: false } : c)
+        }
+        return [...prev, { member, minimized: false, messages: msgs }]
+      })
+    } finally {
+      openingRef.current.delete(member.id)
     }
     setPickerOpen(false)
   }

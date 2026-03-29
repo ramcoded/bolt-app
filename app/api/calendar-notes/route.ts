@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 const putSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -35,6 +36,11 @@ export async function PUT(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Rate limit: 60 saves per hour per user
+  if (!await rateLimit(`calendar-notes:${user.id}`, 60, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+  }
 
   const raw = await request.json()
   const result = putSchema.safeParse(raw)

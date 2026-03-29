@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { logError } from '@/lib/logger'
+import { rateLimit } from '@/lib/rate-limit'
 
 function mapRecord(r: Record<string, unknown>) {
   return {
@@ -41,6 +42,11 @@ export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Rate limit: 10 clock-ins per hour per user
+  if (!await rateLimit(`clock-in:${user.id}`, 10, 60 * 60 * 1000)) {
+    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+  }
 
   // Prevent multiple active clock-ins
   const { data: active } = await supabase

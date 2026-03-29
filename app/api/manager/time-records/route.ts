@@ -31,16 +31,23 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  const userId = new URL(request.url).searchParams.get('userId')
+  const { searchParams } = new URL(request.url)
+  const userId = searchParams.get('userId')
   if (!userId) return NextResponse.json({ error: 'userId required' }, { status: 400 })
 
-  const db = process.env.SUPABASE_SERVICE_ROLE_KEY
-    ? createAdminClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY,
-        { auth: { autoRefreshToken: false, persistSession: false } }
-      )
-    : supabase
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!uuidRegex.test(userId)) {
+    return NextResponse.json({ error: 'Invalid userId' }, { status: 400 })
+  }
+
+  const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '100', 10) || 100, 1), 500)
+  const offset = Math.max(parseInt(searchParams.get('offset') ?? '0', 10) || 0, 0)
+
+  const db = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
 
   const { data, error } = await db
     .from('time_records')
@@ -48,6 +55,7 @@ export async function GET(request: Request) {
     .eq('user_id', userId)
     .order('date', { ascending: false })
     .order('time_in', { ascending: false })
+    .range(offset, offset + limit - 1)
 
   if (error) {
     logError('manager/time-records/GET', error)

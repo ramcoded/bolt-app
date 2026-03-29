@@ -10,9 +10,12 @@ export async function createClient() {
       cookies: {
         getAll: () => cookieStore.getAll(),
         setAll: (cookiesToSet) =>
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          ),
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Strip maxAge/expires so auth cookies are session-only.
+            // This prevents auto-login after the browser is closed and reopened.
+            const { maxAge, expires, ...sessionOptions } = options ?? {}
+            cookieStore.set(name, value, sessionOptions)
+          }),
       },
     }
   )

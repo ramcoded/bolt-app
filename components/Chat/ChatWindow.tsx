@@ -73,7 +73,8 @@ export default function ChatWindow({ member, messages, minimized, myId, muted, o
     setInput('')
   }
 
-  const myMessages = messages.filter((m) => m.senderId === 'me' || m.senderId === myId)
+  const safeMessages = Array.isArray(messages) ? messages : []
+  const myMessages = safeMessages.filter((m) => m.senderId === 'me' || m.senderId === myId)
   const lastMyMsgId = myMessages[myMessages.length - 1]?.id
 
   return (
@@ -128,12 +129,12 @@ export default function ChatWindow({ member, messages, minimized, myId, muted, o
       {!minimized && (
         <>
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
-            {messages.length === 0 && (
+            {safeMessages.length === 0 && (
               <p className="text-xs text-white/25 text-center mt-8">
                 Start a conversation with {member.name.split(' ')[0]}
               </p>
             )}
-            {messages.map((msg) => {
+            {safeMessages.map((msg) => {
               const isMe       = msg.senderId === 'me' || msg.senderId === myId
               const isLastMine = isMe && msg.id === lastMyMsgId
               return (

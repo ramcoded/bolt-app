@@ -23,8 +23,20 @@ export default function ProfileCard() {
     return () => clearInterval(id)
   }, [])
 
-  const todayRecord   = now ? records.find((r) => r.date === toDateStr(now)) : undefined
-  const thisWeekTotal = records.filter((r) => r.duration !== null).reduce((sum, r) => sum + (r.duration ?? 0), 0)
+  const todayRecord = now ? records.find((r) => r.date === toDateStr(now)) : undefined
+
+  // Sum only completed sessions within the current Mon–Sun week, never negative
+  const thisWeekTotal = (() => {
+    const today   = now ?? new Date()
+    const sun     = new Date(today)
+    sun.setDate(today.getDate() - today.getDay())
+    const weekStart = toDateStr(sun)
+    const sat = new Date(sun); sat.setDate(sun.getDate() + 6)
+    const weekEnd   = toDateStr(sat)
+    return records
+      .filter((r) => r.duration !== null && r.date >= weekStart && r.date <= weekEnd)
+      .reduce((sum, r) => sum + Math.max(0, r.duration ?? 0), 0)
+  })()
   const timeStr = now ? now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }) : '00:00:00'
   const dateStr = now ? now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : '\u00a0'
 

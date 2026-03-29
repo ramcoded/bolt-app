@@ -50,6 +50,12 @@ export default function NotificationDropdown() {
           })
         }
       )
+      .on('postgres_changes' as any, {
+        event: 'UPDATE', schema: 'public', table: 'notifications', filter: `user_id=eq.${profile.id}`,
+      }, (payload: any) => {
+        const n = payload.new
+        setNotifs((prev) => prev.map((x) => x.id === n.id ? { ...x, read: n.read } : x))
+      })
       // Broadcast fallback: fired by the manager's client after task creation.
       // Works even when postgres_changes / REPLICA IDENTITY is not configured.
       .on('broadcast', { event: 'new_notification' }, ({ payload }: any) => {

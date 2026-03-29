@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useState, ReactNode } from 'react'
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import type { User } from '@supabase/supabase-js'
 
 export type Profile = {
@@ -31,6 +31,13 @@ export function AuthProvider({
   initialProfile: Profile | null
 }) {
   const [profile, setProfile] = useState<Profile | null>(initialProfile)
+
+  // Sync profile when the authenticated user changes (e.g. after login redirect
+  // without a full page reload — Next.js reuses the mounted AuthProvider but
+  // passes new initialUser/initialProfile props from the re-executed layout).
+  useEffect(() => {
+    setProfile(initialProfile)
+  }, [initialUser?.id])
 
   return (
     <AuthContext.Provider value={{ user: initialUser, profile, setProfile }}>

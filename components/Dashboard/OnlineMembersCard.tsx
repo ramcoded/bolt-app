@@ -29,7 +29,9 @@ export default function OnlineMembersCard() {
       }
     : null
 
-  const allMembers = (self ? [self, ...members] : members).map((m) => ({
+  // Exclude current user from fetched members to prevent duplicate keys
+  const otherMembers = members.filter((m) => m.id !== profile?.id)
+  const allMembers = (self ? [self, ...otherMembers] : otherMembers).map((m) => ({
     ...m,
     online: m.id === profile?.id ? true : onlineIds.has(m.id),
   }))

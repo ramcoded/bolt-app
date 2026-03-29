@@ -13,11 +13,13 @@ export default function MemberBoard() {
   const onlineIds   = useOnlineIds()
   const [members,    setMembers]    = useState<TeamMember[]>([])
   const [activeChat, setActiveChat] = useState<TeamMember | null>(null)
+  const [loaded,     setLoaded]     = useState(false)
 
   useEffect(() => {
     fetch('/api/team', { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setMembers(data) })
+      .finally(() => setLoaded(true))
   }, [])
 
   // Prepend current user as always-online (can't chat with yourself so no onClick)
@@ -32,7 +34,8 @@ export default function MemberBoard() {
       }
     : null
 
-  const allMembers = (self ? [self, ...members] : members).map((m) => ({
+  const otherMembers = members.filter((m) => m.id !== profile?.id)
+  const allMembers = (self ? [self, ...otherMembers] : otherMembers).map((m) => ({
     ...m,
     online: m.id === profile?.id ? true : onlineIds.has(m.id),
   }))
@@ -84,8 +87,14 @@ export default function MemberBoard() {
               </div>
             )}
 
-            {allMembers.length === 0 && (
+            {!loaded && otherMembers.length === 0 && (
               <p className="text-xs text-white/25 text-center py-8">Loading team…</p>
+            )}
+            {loaded && otherMembers.length === 0 && (
+              <div className="text-center py-8 px-4">
+                <p className="text-xs font-medium text-white/35">No teammates yet</p>
+                <p className="text-[11px] text-white/20 mt-1">Team members will appear here once added by a manager</p>
+              </div>
             )}
           </div>
         </div>
@@ -103,8 +112,14 @@ export default function MemberBoard() {
             >
               <MessageCircle className="w-5 h-5" style={{ color: '#6366f1', opacity: 0.7 }} />
             </div>
-            <p className="text-sm font-medium text-white/50">Select a team member</p>
-            <p className="text-xs text-white/25 mt-1">Click anyone on the left to start chatting</p>
+            <p className="text-sm font-medium text-white/50">
+              {loaded && otherMembers.length === 0 ? 'No teammates yet' : 'Select a team member'}
+            </p>
+            <p className="text-xs text-white/25 mt-1">
+              {loaded && otherMembers.length === 0
+                ? 'Your manager will add team members to chat with'
+                : 'Click anyone on the left to start chatting'}
+            </p>
           </div>
         )}
       </div>

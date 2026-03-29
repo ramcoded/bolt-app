@@ -1,8 +1,17 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { logError } from '@/lib/logger'
+
+function adminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } }
+  )
+}
 
 const PRIORITY_COLORS: Record<string, string> = {
   high:   '#ef4444',
@@ -103,7 +112,7 @@ export async function POST(request: Request) {
       .select('name')
       .eq('id', user.id)
       .single()
-    await supabase.from('notifications').insert({
+    await adminClient().from('notifications').insert({
       user_id:     assigned_to,
       type:        'task',
       title:       `New task assigned: ${title}`,

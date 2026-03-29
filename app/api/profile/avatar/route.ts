@@ -28,7 +28,7 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Rate limit: 10 uploads per hour per user
-  if (!rateLimit(`avatar:${user.id}`, 10, 60 * 60 * 1000)) {
+  if (!await rateLimit(`avatar:${user.id}`, 10, 60 * 60 * 1000)) {
     return NextResponse.json({ error: 'Too many uploads. Please try again later.' }, { status: 429 })
   }
 
