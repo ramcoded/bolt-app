@@ -53,10 +53,13 @@ export default async function RootLayout({
         ?? user.email
         ?? 'User'
       const isOAuth = user.app_metadata?.provider !== 'email'
+      const avatar = (user.user_metadata?.avatar_url as string | undefined)
+        ?? (user.user_metadata?.picture as string | undefined)
+        ?? name.slice(0, 2).toUpperCase()
       const admin = getAdmin()
       const { data: created } = await admin
         .from('profiles')
-        .insert({ id: user.id, name, avatar: name.slice(0, 2).toUpperCase(), role: isOAuth ? 'manager' : 'member' })
+        .insert({ id: user.id, name, avatar, role: isOAuth ? 'manager' : 'member' })
         .select()
         .single()
       profile = created

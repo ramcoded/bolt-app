@@ -52,6 +52,10 @@ export async function GET(request: Request) {
       ?? user.email
       ?? 'User'
 
+    const avatar = (user.user_metadata?.avatar_url as string | undefined)
+      ?? (user.user_metadata?.picture as string | undefined)
+      ?? name.slice(0, 2).toUpperCase()
+
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -78,7 +82,7 @@ export async function GET(request: Request) {
       id:      user.id,
       name,
       role,
-      avatar:  name.slice(0, 2).toUpperCase(),
+      avatar,
       online:  true,
       team_id: teamId,
     })

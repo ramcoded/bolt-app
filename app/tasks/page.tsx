@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, CheckCircle2, Circle, Trash2, X, CalendarDays, Users, Flag, Check } from 'lucide-react'
+import { Plus, CheckCircle2, Trash2, X, CalendarDays, Users, Flag, Check } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { createClient } from '@/lib/supabase/client'
 import AvatarImage from '@/components/AvatarImage'
@@ -60,6 +60,8 @@ export default function TasksPage() {
   const [loading,    setLoading]    = useState(true)
   const [saveError,  setSaveError]  = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [confirmTask, setConfirmTask] = useState<Task | null>(null)
+  const [completing, setCompleting] = useState<string | null>(null)
 
   const [today, setToday] = useState('')
   const [form, setForm] = useState({
@@ -67,6 +69,13 @@ export default function TasksPage() {
     priority: 'medium' as 'low' | 'medium' | 'high',
   })
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
+
+  useEffect(() => {
+    if (!confirmTask) return
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmTask(null) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [confirmTask])
 
   useEffect(() => {
     const todayStr = new Date().toISOString().slice(0, 10)
@@ -121,25 +130,33 @@ export default function TasksPage() {
     return true
   })
 
-  const toggleComplete = async (task: Task) => {
-    const newCompleted = !task.completed
-    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: newCompleted } : t))
+  const markDone = async (task: Task) => {
+    setConfirmTask(null)
+    setCompleting(task.id)
     setSaveError(null)
     const res = await fetch(`/api/tasks/${task.id}`, {
       method:  'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ completed: newCompleted }),
+      body:    JSON.stringify({ completed: true }),
     })
     if (!res.ok) {
       const body = await res.json().catch(() => ({}))
       setSaveError(body?.error ?? `HTTP ${res.status}`)
-      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: task.completed } : t))
+    } else {
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, completed: true } : t))
+      addToast('Task completed', `"${task.title}" marked as finished`, 'task')
     }
+    setCompleting(null)
   }
 
   const deleteTask = async (id: string) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    const prev = tasks
+    setTasks((t) => t.filter((x) => x.id !== id))
+    const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      setTasks(prev)
+      setSaveError('Failed to delete task')
+    }
   }
 
   const createTask = async () => {
@@ -412,27 +429,38 @@ export default function TasksPage() {
               const isOverdue = !task.completed && task.date && task.date < today
               return (
                 <div key={task.id}
-                  className="flex items-start gap-4 px-5 py-4 hover:bg-white/2 transition-colors"
-                  style={{ opacity: task.completed ? 0.55 : 1 }}
+                  className="flex items-start gap-4 px-5 py-4 transition-colors"
+                  style={{
+                    opacity: task.completed ? 0.5 : 1,
+                    background: task.completed ? 'rgba(255,255,255,0.01)' : undefined,
+                  }}
                 >
-                  <button onClick={() => toggleComplete(task)} className="flex-shrink-0 mt-0.5 hover:opacity-80 transition-colors">
+                  {/* Status indicator */}
+                  <div className="flex-shrink-0 mt-0.5">
                     {task.completed
-                      ? <CheckCircle2 className="w-5 h-5 text-green-400" />
-                      : <Circle className="w-5 h-5 text-white/20" />}
-                  </button>
+                      ? <CheckCircle2 className="w-5 h-5 text-green-400/60" />
+                      : <div className="w-5 h-5 rounded-full border-2 border-white/15" />}
+                  </div>
 
                   <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium text-white ${task.completed ? 'line-through' : ''}`}>
+                    <p className={`text-sm font-medium ${task.completed ? 'line-through text-white/40' : 'text-white'}`}>
                       {task.title}
                     </p>
                     {task.description && (
                       <p className="text-xs text-white/40 mt-0.5 truncate">{task.description}</p>
                     )}
                     <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize"
-                        style={{ background: pc.bg, border: `1px solid ${pc.border}`, color: pc.text }}>
-                        {task.priority}
-                      </span>
+                      {task.completed ? (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{ background: 'rgba(34,197,94,0.10)', border: '1px solid rgba(34,197,94,0.25)', color: '#4ade80' }}>
+                          Finished
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full capitalize"
+                          style={{ background: pc.bg, border: `1px solid ${pc.border}`, color: pc.text }}>
+                          {task.priority}
+                        </span>
+                      )}
                       {task.date && (
                         <span className={`text-[11px] flex items-center gap-1 ${isOverdue ? 'text-red-400' : 'text-white/30'}`}>
                           <CalendarDays className="w-3 h-3" />
@@ -455,12 +483,25 @@ export default function TasksPage() {
                     </div>
                   </div>
 
-                  {isManager && (
-                    <button onClick={() => deleteTask(task.id)}
-                      className="flex-shrink-0 p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-colors">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {!task.completed && (
+                      <button
+                        onClick={() => setConfirmTask(task)}
+                        disabled={completing === task.id}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
+                        style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.30)', color: '#4ade80' }}
+                      >
+                        {completing === task.id ? 'Saving…' : 'Mark as Done'}
+                      </button>
+                    )}
+                    {isManager && (
+                      <button onClick={() => deleteTask(task.id)}
+                        className="p-1.5 rounded-lg text-white/20 hover:text-red-400 hover:bg-red-500/8 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               )
             })}
@@ -469,6 +510,50 @@ export default function TasksPage() {
       </div>
 
       <p className="text-[11px] text-white/20 text-center">Tasks also appear on your Calendar view</p>
+
+      {/* Confirmation modal */}
+      {confirmTask && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+          onClick={() => setConfirmTask(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+            style={{ background: 'rgba(15,15,20,0.95)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 24px 60px rgba(0,0,0,0.6)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.30)' }}>
+                <CheckCircle2 className="w-5 h-5 text-green-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Mark as finished?</h3>
+                <p className="text-xs text-white/40 mt-0.5">This cannot be undone</p>
+              </div>
+            </div>
+            <p className="text-sm text-white/60 px-1">
+              Are you sure you want to mark <span className="text-white font-medium">"{confirmTask.title}"</span> as done? Once confirmed, this task cannot be reopened.
+            </p>
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => setConfirmTask(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.55)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => markDone(confirmTask)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-all"
+                style={{ background: 'rgba(34,197,94,0.20)', border: '1px solid rgba(34,197,94,0.40)', color: '#4ade80' }}
+              >
+                Yes, mark as done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
