@@ -1,6 +1,6 @@
-# ⚡ BOLT — Team Productivity & Time Tracking Platform
+# BOLT — Team Productivity & Time Tracking Platform
 
-> **Status: 🚧 Under Active Development**
+> Status: Under Active Development
 
 BOLT is a real-time team productivity dashboard built for internal use. It combines time tracking, team presence, task management, and live messaging into a single dark-glass UI.
 
@@ -8,27 +8,29 @@ BOLT is a real-time team productivity dashboard built for internal use. It combi
 
 ## Features
 
-### ✅ Implemented
-- **Authentication** — Supabase-based login/logout with server-side session handling
-- **Time Tracking** — Clock in/out with confirmation modal, daily records, duration tracking
-- **Timeline** — Personal and manager views of time records with sorting and filtering
-- **Dashboard** — Live clock, weekly hours graph, upcoming tasks, team online status
-- **Team Presence** — Real-time online/offline status via Supabase Realtime broadcast channels
-- **Chat System** — Floating chat windows (auto-popup on message), typing indicators, read receipts, mute per user, notification sound
-- **Notifications** — In-app notification bell with real-time inserts and mark-as-read
-- **Profile Page** — Stats overview, recent activity, avatar upload (reflects across all accounts)
-- **Manager Dashboard** — Team time record overview and stats (manager role only)
-- **Calendar** — Task scheduling with color-coded events
-- **Tasks** — Create, view, and manage personal tasks
+### Implemented
 
-### 🚧 In Progress / Planned
+- **Authentication** — Supabase-based login/logout with OAuth provider support, server-side session handling, and role assignment (manager vs. member) on first sign-in
+- **Multi-team Support** — Team isolation across all data; managers and members are scoped to their own team with RLS enforcement at the database level
+- **Time Tracking** — Clock in/out with confirmation modal, daily records, and duration tracking
+- **Timeline** — Personal and manager views of time records with sorting and filtering; CSV/PDF export
+- **Dashboard** — Live clock, weekly hours graph, upcoming tasks, and team online status
+- **Team Presence** — Real-time online/offline status via Supabase Realtime broadcast channels
+- **Chat System** — Floating chat windows with auto-popup on new message, typing indicators, read receipts, per-user mute, and notification sound
+- **Notifications** — In-app notification bell with real-time delivery, mark-as-read, and manager alerts when tasks are completed
+- **Profile Page** — Stats overview, recent activity, and avatar upload (reflects across all sessions)
+- **Manager Dashboard** — Team time record overview and stats (manager role only)
+- **Calendar** — Task scheduling with color-coded events per priority
+- **Tasks** — Managers can assign tasks to one or multiple team members with priority, deadline, and description. Members mark tasks as done via a confirmation flow. Completed tasks are permanent (cannot be reopened), grayed out with a "Finished" badge, and trigger a notification to the manager.
+- **Role-based Access Control** — Managers control task creation, deletion, and team visibility; members can only update the completion status of tasks assigned to them
+
+### Planned
+
 - Manager approval workflow for time records
-- Advanced reporting and export (CSV/PDF)
-- Task assignment between team members
+- Advanced reporting and analytics
 - Calendar sync / iCal integration
 - Push notifications
 - Mobile responsive polish
-- Role-based permissions refinement
 
 ---
 
@@ -36,13 +38,13 @@ BOLT is a real-time team productivity dashboard built for internal use. It combi
 
 | Layer | Technology |
 |---|---|
-| Framework | [Next.js 14](https://nextjs.org/) — App Router, Server Components |
+| Framework | Next.js 16 — App Router, Server Components |
 | Language | TypeScript |
-| Database & Auth | [Supabase](https://supabase.com/) — PostgreSQL + Auth + Realtime |
+| Database & Auth | Supabase — PostgreSQL + Auth + Realtime |
 | Storage | Supabase Storage (avatar images) |
 | Styling | Tailwind CSS + custom glass design system |
-| Charts | [Recharts](https://recharts.org/) |
-| Icons | [Lucide React](https://lucide.dev/) |
+| Charts | Recharts |
+| Icons | Lucide React |
 | Deployment | Vercel (recommended) |
 
 ---
@@ -78,7 +80,7 @@ bolt-app/
 
 BOLT uses a custom dark glass aesthetic:
 
-- **Background**: `#000000` → `#0a0a0f`
+- **Background**: `#000000` to `#0a0a0f`
 - **Accent**: `#4f46e5` (indigo)
 - **Glass cards**: `rgba(255,255,255,0.04)` background + `rgba(120,110,255,0.10)` border + `blur(20px)`
 - **Dropdowns/modals**: `rgba(12,12,20,0.96)` — nearly opaque for readability
@@ -91,7 +93,7 @@ This project is under active development. If you're contributing:
 
 1. Branch off `main`
 2. Keep PRs focused — one feature or fix per PR
-3. Test both employee and manager role flows before submitting
+3. Test both member and manager role flows before submitting
 
 ---
 
