@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
 const ALLOWED_TYPES: Record<string, string> = {
@@ -25,7 +25,10 @@ function getAdmin() {
 export async function POST(req: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('profile/avatar/POST 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Rate limit: 10 uploads per hour per user
   if (!await rateLimit(`avatar:${user.id}`, 10, 60 * 60 * 1000)) {

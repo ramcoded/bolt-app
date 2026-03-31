@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 function getAdmin() {
   return createAdminClient(
@@ -36,7 +36,10 @@ export async function PATCH(
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('tasks/[id]/PATCH 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   let raw: unknown
   try {
@@ -67,12 +70,14 @@ export async function PATCH(
       .single()
 
     if (!task || task.assigned_to !== user.id) {
+      logInfo('tasks/[id]/PATCH 403', 'Forbidden: task not assigned to user')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Whitelist: members may only set completed
     const allowedKeys = Object.keys(result.data).filter(k => k === 'completed')
     if (allowedKeys.length === 0 || Object.keys(result.data).length !== allowedKeys.length) {
+      logInfo('tasks/[id]/PATCH 403', 'Forbidden: members can only update completed status')
       return NextResponse.json({ error: 'Forbidden: members can only update completed status' }, { status: 403 })
     }
   }
@@ -144,16 +149,31 @@ export async function DELETE(
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('tasks/[id]/DELETE 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, team_id')
     .eq('id', user.id)
     .single()
 
   if (profile?.role !== 'manager') {
+    logInfo('tasks/[id]/DELETE 403', 'Forbidden: not a manager')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+
+  // H3: Verify the task's assigned user belongs to the manager's team
+  const admin = getAdmin()
+  const { data: task } = await admin.from('tasks').select('assigned_to').eq('id', id).single()
+  if (task?.assigned_to) {
+    const { data: assignee } = await admin.from('profiles').select('team_id').eq('id', task.assigned_to).single()
+    if (assignee?.team_id !== profile.team_id) {
+      logInfo('tasks/[id]/DELETE 403', 'Forbidden: task assigned to user outside manager team')
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
   }
 
   const { error } = await supabase.from('tasks').delete().eq('id', id)

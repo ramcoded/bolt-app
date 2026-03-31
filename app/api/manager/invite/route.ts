@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
 function getAdmin() {
@@ -24,14 +24,20 @@ const postSchema = z.object({
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/invite/POST 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: me } = await supabase
     .from('profiles')
     .select('role, team_id')
     .eq('id', user.id)
     .single()
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/invite/POST 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   // Rate limit: 10 invites per hour per manager
   if (!await rateLimit(`invite:${user.id}`, 10, 60 * 60 * 1000)) {

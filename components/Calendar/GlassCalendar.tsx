@@ -12,15 +12,21 @@ import DayCell from './DayCell'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+type ScheduleOverride = { date: string; type: string; timeIn: string | null; timeOut: string | null }
+
 export default function GlassCalendar() {
-  const [current, setCurrent] = useState<Date | null>(null)
-  const [tasks,   setTasks]   = useState<CalendarTask[]>([])
-  const [notes,   setNotes]   = useState<CalendarNote[]>([])
+  const [current,   setCurrent]   = useState<Date | null>(null)
+  const [tasks,     setTasks]     = useState<CalendarTask[]>([])
+  const [notes,     setNotes]     = useState<CalendarNote[]>([])
+  const [overrides, setOverrides] = useState<ScheduleOverride[]>([])
 
   useEffect(() => {
     setCurrent(new Date())
     fetch('/api/tasks').then((r) => r.json()).then(setTasks)
     fetch('/api/calendar-notes').then((r) => r.json()).then(setNotes)
+    fetch('/api/schedules')
+      .then((r) => r.json())
+      .then((d) => setOverrides(d.overrides ?? []))
   }, [])
 
   if (!current) return <div className="glass-card p-5 animate-pulse h-64" />
@@ -47,8 +53,9 @@ export default function GlassCalendar() {
   let d = gridStart
   while (d <= gridEnd) { days.push(d); d = addDays(d, 1) }
 
-  const tasksForDate = (dateStr: string) => tasks.filter((t) => t.date === dateStr)
-  const noteForDate  = (dateStr: string) => notes.find((n) => n.date === dateStr)?.content ?? ''
+  const tasksForDate    = (dateStr: string) => tasks.filter((t) => t.date === dateStr)
+  const noteForDate     = (dateStr: string) => notes.find((n) => n.date === dateStr)?.content ?? ''
+  const overrideForDate = (dateStr: string) => overrides.find((o) => o.date === dateStr) ?? null
 
   return (
     <div className="glass-card p-5">
@@ -91,6 +98,7 @@ export default function GlassCalendar() {
               date={day}
               tasks={tasksForDate(dateStr)}
               note={noteForDate(dateStr)}
+              override={overrideForDate(dateStr)}
               isToday={isTodayFn(day)}
               isCurrentMonth={isSameMonth(day, current)}
               onNoteChange={handleNoteChange}

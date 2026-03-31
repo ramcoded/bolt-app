@@ -7,6 +7,7 @@ import { TimeRecordsProvider } from '@/lib/time-records-context'
 import { PresenceProvider } from '@/lib/presence-context'
 import NavBar from '@/components/NavBar'
 import ChatTabs from '@/components/Chat/ChatTabs'
+import NotesPanel from '@/components/NotesPanel'
 import { ToastProvider } from '@/components/Toast'
 
 // Renders children only on the client to prevent hydration mismatches
@@ -37,6 +38,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </main>
           <ClientOnly>
             {!pathname.startsWith('/team') && <ChatTabs />}
+          </ClientOnly>
+          <ClientOnly>
+            <NotesPanel />
           </ClientOnly>
         </ToastProvider>
       </TimeRecordsProvider>

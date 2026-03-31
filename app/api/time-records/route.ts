@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
 function mapRecord(r: Record<string, unknown>) {
@@ -17,7 +17,10 @@ function mapRecord(r: Record<string, unknown>) {
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('time-records/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '100', 10) || 100, 1), 500)
@@ -41,7 +44,10 @@ export async function GET(request: Request) {
 export async function POST() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('time-records/POST 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Rate limit: 10 clock-ins per hour per user
   if (!await rateLimit(`clock-in:${user.id}`, 10, 60 * 60 * 1000)) {

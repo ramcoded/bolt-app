@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 import { rateLimit } from '@/lib/rate-limit'
 
 function adminClient() {
@@ -34,7 +34,10 @@ const postSchema = z.object({
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('messages/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(request.url)
   const withId = searchParams.get('with')
@@ -71,7 +74,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('messages/POST 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Rate limit: 60 messages per minute per user
   if (!await rateLimit(`messages:${user.id}`, 60, 60 * 1000)) {

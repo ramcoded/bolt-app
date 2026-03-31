@@ -1,0 +1,9 @@
+export default function Loading() {
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-4">
+      <div className="h-8 w-48 rounded-xl bg-white/5 animate-pulse" />
+      <div className="h-64 rounded-2xl bg-white/3 animate-pulse" />
+      <div className="h-32 rounded-2xl bg-white/3 animate-pulse" />
+    </div>
+  )
+}

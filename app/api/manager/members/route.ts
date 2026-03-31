@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,10 +26,16 @@ async function getManagerTeam(supabase: Awaited<ReturnType<typeof createClient>>
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/members/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const me = await getManagerTeam(supabase, user.id)
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/members/GET 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   if (!me.team_id) return NextResponse.json({ members: [] })
 
@@ -44,11 +50,16 @@ export async function GET() {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
-  // Fetch auth users to determine invite status
+  // Fetch auth users to determine invite status — only for this team's profiles
   const admin = getAdmin()
-  const { data: authData } = await admin.auth.admin.listUsers()
+  const profileIds = (profiles ?? []).map((p) => p.id)
+  const authResults = await Promise.all(
+    profileIds.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data.user).catch(() => null))
+  )
   const authMap = new Map<string, { last_sign_in_at: string | null }>(
-    (authData?.users ?? []).map((u) => [u.id, { last_sign_in_at: u.last_sign_in_at ?? null }])
+    authResults
+      .filter((u): u is NonNullable<typeof u> => u !== null)
+      .map((u) => [u.id, { last_sign_in_at: u.last_sign_in_at ?? null }])
   )
 
   const members = (profiles ?? []).map((m) => {
@@ -63,10 +74,16 @@ export async function GET() {
 export async function DELETE(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/members/DELETE 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const me = await getManagerTeam(supabase, user.id)
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/members/DELETE 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { id } = await request.json()
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
@@ -76,6 +93,7 @@ export async function DELETE(request: Request) {
   if (me.team_id) {
     const { data: target } = await supabase.from('profiles').select('team_id').eq('id', id).single()
     if (target?.team_id !== me.team_id) {
+      logInfo('manager/members/DELETE 403', 'Forbidden: target not in same team')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }
@@ -90,36 +108,56 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
+  logInfo('manager/members/DELETE audit', `Manager ${user.id} deleted user ${id}`)
   return NextResponse.json({ success: true })
 }
 
 export async function PATCH(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/members/PATCH 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const me = await getManagerTeam(supabase, user.id)
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/members/PATCH 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
-  const { id, role } = await request.json()
-  if (!id || !role) return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
-  if (!['manager', 'member'].includes(role)) return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
-  if (id === user.id) return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
+  const { id, role, department } = await request.json()
+  if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
+  if (role === undefined && department === undefined) {
+    return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
+  }
+  if (role !== undefined && !['manager', 'member'].includes(role)) {
+    return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
+  }
+  if (role !== undefined && id === user.id) {
+    return NextResponse.json({ error: 'Cannot change your own role' }, { status: 400 })
+  }
 
   // Ensure target is in the same team
   if (me.team_id) {
     const { data: target } = await supabase.from('profiles').select('team_id').eq('id', id).single()
     if (target?.team_id !== me.team_id) {
+      logInfo('manager/members/PATCH 403', 'Forbidden: target not in same team')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }
 
   const admin = getAdmin()
-  const { error } = await admin.from('profiles').update({ role }).eq('id', id)
+  const updates: Record<string, unknown> = {}
+  if (role !== undefined)       updates.role       = role
+  if (department !== undefined) updates.department = department || null
+
+  const { error } = await admin.from('profiles').update(updates).eq('id', id)
   if (error) {
     logError('manager/members/PATCH', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 
+  logInfo('manager/members/PATCH audit', `Manager ${user.id} updated user ${id}: ${JSON.stringify(updates)}`)
   return NextResponse.json({ success: true })
 }

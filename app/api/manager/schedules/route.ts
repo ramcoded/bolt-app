@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,15 +40,22 @@ const putSchema = z.object({
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/schedules/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const me = await verifyManager(supabase, user.id)
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/schedules/GET 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const { searchParams } = new URL(request.url)
   const userId = searchParams.get('userId')
   if (!userId) return NextResponse.json({ error: 'Missing userId' }, { status: 400 })
 
   if (!(await isInSameTeam(supabase, me.team_id, userId))) {
+    logInfo('manager/schedules/GET 403', 'Forbidden: user not in same team')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -66,9 +73,15 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/schedules/PUT 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
   const me = await verifyManager(supabase, user.id)
-  if (me?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (me?.role !== 'manager') {
+    logInfo('manager/schedules/PUT 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
 
   const raw = await request.json()
   const result = putSchema.safeParse(raw)
@@ -79,6 +92,7 @@ export async function PUT(request: Request) {
   const { userId, schedule } = result.data
 
   if (!(await isInSameTeam(supabase, me.team_id, userId))) {
+    logInfo('manager/schedules/PUT 403', 'Forbidden: user not in same team')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
   const admin = getAdmin()

@@ -23,10 +23,15 @@ BOLT is a real-time team productivity dashboard built for internal use. It combi
 - **Calendar** — Task scheduling with color-coded events per priority
 - **Tasks** — Managers can assign tasks to one or multiple team members with priority, deadline, and description. Members mark tasks as done via a confirmation flow. Completed tasks are permanent (cannot be reopened), grayed out with a "Finished" badge, and trigger a notification to the manager.
 - **Role-based Access Control** — Managers control task creation, deletion, and team visibility; members can only update the completion status of tasks assigned to them
+- **Leave and Overtime Requests** — Members can submit overtime (post-shift, pre-shift) and time-off requests with a reason and hours. Requests are reviewed by the manager who can approve or reject with an optional note. Approval automatically updates the member's schedule with the correct adjusted times.
+- **Schedule Override Propagation** — When a request is approved, a schedule override is written for the member's specific date. The corrected times (or day-off marker) are reflected across the dashboard weekly view, the timeline weekly schedule card, and the calendar.
+- **Request Notifications** — Submitting a request immediately notifies the manager in real time. Approval or rejection immediately notifies the requesting member. Delivery uses both database inserts and Supabase Realtime broadcast to guarantee instant arrival without requiring table replication configuration.
+- **Team Group Chat** — A shared real-time group chat scoped to each team. All team members participate in one channel. Messages show sender avatars and names with consecutive-message collapsing. Accessible from the floating chat button (Team Chat entry at the top of the picker) and embedded directly on the Team page alongside the member board. Messages persist in the database and are delivered via Supabase broadcast for instant updates.
+- **Personal Notes Panel** — A collapsible notes panel anchored to the left edge of the screen, available on every page. Content is saved per account to the database with a one-second debounce auto-save and a visible saving/saved indicator. Notes are private and isolated by user.
+- **Profile Clock Status** — The profile card on the dashboard accurately reflects whether the user is currently clocked in or clocked out, using the active session state rather than just the presence of a time record.
 
 ### Planned
 
-- Manager approval workflow for time records
 - Advanced reporting and analytics
 - Calendar sync / iCal integration
 - Push notifications
@@ -58,14 +63,15 @@ bolt-app/
 │   ├── (pages)/              # Dashboard, timeline, calendar, tasks, team, profile, manager
 │   └── globals.css           # Glass design system tokens
 ├── components/
-│   ├── Chat/                 # Floating chat windows (ChatTabs, ChatWindow)
-│   ├── Dashboard/            # ProfileCard, OnlineMembersCard, ReminderCard, TimelineGraphCard
+│   ├── Chat/                 # ChatTabs, ChatWindow, GroupChatWindow
+│   ├── Dashboard/            # ProfileCard, OnlineMembersCard, ReminderCard, TimelineGraphCard, ScheduleCard
 │   ├── Profile/              # ProfileDropdown
-│   ├── Team/                 # MemberBoard, ChatPanel
-│   ├── Timeline/             # TimelineList, ManagerTimeline
+│   ├── Team/                 # MemberBoard, GroupChatPanel
+│   ├── Timeline/             # TimelineList, ManagerTimeline, ScheduleCard
 │   ├── Calendar/             # GlassCalendar, DayCell
 │   ├── AvatarImage.tsx       # Smart avatar: renders image URL or text initials
 │   ├── NavBar.tsx
+│   ├── NotesPanel.tsx        # Collapsible per-user notes panel (left edge, all pages)
 │   └── AppShell.tsx
 └── lib/
     ├── auth-context.tsx      # Auth + profile state (client)

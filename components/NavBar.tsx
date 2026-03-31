@@ -12,11 +12,12 @@ import { useTimeRecords } from '@/lib/time-records-context'
 import { useAuth } from '@/lib/auth-context'
 
 const navLinks = [
-  { href: '/',         label: 'Dashboard' },
-  { href: '/timeline', label: 'Timeline'  },
-  { href: '/calendar', label: 'Calendar'  },
-  { href: '/tasks',    label: 'Tasks'     },
-  { href: '/team',     label: 'Team'      },
+  { href: '/',          label: 'Dashboard' },
+  { href: '/timeline',  label: 'Timeline'  },
+  { href: '/calendar',  label: 'Calendar'  },
+  { href: '/tasks',     label: 'Tasks'     },
+  { href: '/team',      label: 'Team'      },
+  { href: '/requests',  label: 'Requests'  },
 ]
 
 export default function NavBar() {
@@ -79,13 +80,22 @@ export default function NavBar() {
                 )
               })}
               {isManager && (
-                <Link
-                  href="/manager/dashboard"
-                  className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
-                  style={{ color: pathname === '/manager/dashboard' ? '#818cf8' : 'rgba(99,102,241,0.75)' }}
-                >
-                  Manager
-                </Link>
+                <>
+                  <Link
+                    href="/manager/dashboard"
+                    className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
+                    style={{ color: pathname === '/manager/dashboard' ? '#818cf8' : 'rgba(99,102,241,0.75)' }}
+                  >
+                    Manager
+                  </Link>
+                  <Link
+                    href="/manager/requests"
+                    className={pathname === '/manager/requests' ? 'nav-link-active' : 'nav-link'}
+                    style={{ color: pathname === '/manager/requests' ? '#818cf8' : 'rgba(99,102,241,0.75)' }}
+                  >
+                    Reviews
+                  </Link>
+                </>
               )}
             </div>
 
@@ -166,13 +176,22 @@ export default function NavBar() {
                 )
               })}
               {isManager && (
-                <Link
-                  href="/manager/dashboard"
-                  className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Manager
-                </Link>
+                <>
+                  <Link
+                    href="/manager/dashboard"
+                    className={pathname === '/manager/dashboard' ? 'nav-link-active' : 'nav-link'}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Manager
+                  </Link>
+                  <Link
+                    href="/manager/requests"
+                    className={pathname === '/manager/requests' ? 'nav-link-active' : 'nav-link'}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    Reviews
+                  </Link>
+                </>
               )}
             </div>
           </div>

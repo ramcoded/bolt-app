@@ -1,4 +1,17 @@
+import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+
+export const dynamic = 'force-dynamic'
+
 export async function GET() {
-  return NextResponse.json({ status: 'ok', ts: new Date().toISOString() })
+  try {
+    const supabase = await createClient()
+    const { error } = await supabase.from('profiles').select('id').limit(1)
+    if (error) {
+      return NextResponse.json({ status: 'degraded', db: false, ts: new Date().toISOString() }, { status: 503 })
+    }
+    return NextResponse.json({ status: 'ok', db: true, ts: new Date().toISOString() })
+  } catch {
+    return NextResponse.json({ status: 'degraded', db: false, ts: new Date().toISOString() }, { status: 503 })
+  }
 }

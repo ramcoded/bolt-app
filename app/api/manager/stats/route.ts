@@ -2,14 +2,17 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/stats/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Verify manager role and get team
   const { data: me } = await supabase
@@ -19,6 +22,7 @@ export async function GET() {
     .single()
 
   if (me?.role !== 'manager') {
+    logInfo('manager/stats/GET 403', 'Forbidden: not a manager')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -53,6 +57,7 @@ export async function GET() {
     .select('id, user_id, time_in, time_out, duration')
     .eq('date', today)
     .order('time_in', { ascending: true })
+    .limit(500)
 
   // All time records (for weekly summary)
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
@@ -61,6 +66,7 @@ export async function GET() {
     .select('user_id, duration, date')
     .gte('date', sevenDaysAgo)
     .not('duration', 'is', null)
+    .limit(2000)
 
   const employeeList = (employees ?? []).map((e) => {
     const todayEntry = (todayRecords ?? []).find((r) => r.user_id === e.id)

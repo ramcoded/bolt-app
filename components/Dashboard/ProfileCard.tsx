@@ -10,7 +10,7 @@ import { useAuth } from '@/lib/auth-context'
 export default function ProfileCard() {
   const [now, setNow] = useState<Date | null>(null)
   const [teamName, setTeamName] = useState<string | null>(null)
-  const { records } = useTimeRecords()
+  const { records, timedIn } = useTimeRecords()
   const { profile } = useAuth()
 
   const name   = profile?.name   ?? 'User'
@@ -74,15 +74,15 @@ export default function ProfileCard() {
         </div>
 
         {/* Status badge */}
-        {todayRecord ? (
+        {timedIn ? (
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-green-400/10 border border-green-400/25 flex-shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
             <span className="text-[11px] font-semibold text-green-400">Clocked In</span>
           </div>
         ) : (
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-green-400/10 border border-green-400/25 flex-shrink-0">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-[11px] font-semibold text-green-400">Online</span>
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 flex-shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/30" />
+            <span className="text-[11px] font-semibold text-white/40">Clocked Out</span>
           </div>
         )}
       </div>

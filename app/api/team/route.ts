@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,7 +20,10 @@ function mapMember(m: any) {
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('team/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   // Use service role key if available (bypasses RLS so offline members are visible too)
   const db = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -46,6 +49,7 @@ export async function GET() {
     .neq('id', user.id)
     .eq('team_id', me.team_id)
     .order('name', { ascending: true })
+    .limit(100)
 
   if (error) {
     logError('team/GET', error)

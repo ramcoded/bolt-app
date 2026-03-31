@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 function adminClient() {
   return createAdminClient(
@@ -44,7 +44,10 @@ const postSchema = z.object({
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('tasks/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { searchParams } = new URL(request.url)
   const limit = Math.min(Math.max(parseInt(searchParams.get('limit') ?? '100', 10) || 100, 1), 500)
@@ -89,7 +92,10 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('tasks/POST 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -98,6 +104,7 @@ export async function POST(request: Request) {
     .single()
 
   if (profile?.role !== 'manager') {
+    logInfo('tasks/POST 403', 'Forbidden: not a manager')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

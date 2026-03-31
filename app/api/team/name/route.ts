@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -22,7 +22,10 @@ const patchSchema = z.object({
 export async function GET() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('team/name/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -44,7 +47,10 @@ export async function GET() {
 export async function PATCH(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('team/name/PATCH 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -52,7 +58,10 @@ export async function PATCH(request: Request) {
     .eq('id', user.id)
     .single()
 
-  if (profile?.role !== 'manager') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  if (profile?.role !== 'manager') {
+    logInfo('team/name/PATCH 403', 'Forbidden: not a manager')
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
   if (!profile?.team_id) return NextResponse.json({ error: 'No team found' }, { status: 404 })
 
   const raw = await request.json().catch(() => null)

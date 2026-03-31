@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { MessageCircle, X } from 'lucide-react'
+import { MessageCircle, Users, X } from 'lucide-react'
 import type { TeamMember, ChatMessage } from '@/lib/mock-data'
 import AvatarImage from '@/components/AvatarImage'
 import ChatWindow from './ChatWindow'
+import GroupChatWindow, { type GroupMessage } from './GroupChatWindow'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
 import { useToast } from '@/components/Toast'
 
 type OpenChat = { member: TeamMember; minimized: boolean; messages: ChatMessage[] }
+
+type TeamInfo = { teamId: string; teamName: string; memberCount: number }
 
 function playNotifSound() {
   try {
@@ -31,17 +34,23 @@ function playNotifSound() {
 }
 
 export default function ChatTabs() {
-  const [openChats,  setOpenChats]  = useState<OpenChat[]>([])
-  const [pickerOpen, setPickerOpen] = useState(false)
-  const [members,    setMembers]    = useState<TeamMember[]>([])
-  const [mutedIds,   setMutedIds]   = useState<Set<string>>(new Set())
+  const [openChats,          setOpenChats]          = useState<OpenChat[]>([])
+  const [pickerOpen,         setPickerOpen]         = useState(false)
+  const [members,            setMembers]            = useState<TeamMember[]>([])
+  const [mutedIds,           setMutedIds]           = useState<Set<string>>(new Set())
+  const [groupChatOpen,      setGroupChatOpen]      = useState(false)
+  const [groupChatMinimized, setGroupChatMinimized] = useState(false)
+  const [groupMessages,      setGroupMessages]      = useState<GroupMessage[]>([])
+  const [teamInfo,           setTeamInfo]           = useState<TeamInfo | null>(null)
+
   const membersRef        = useRef<TeamMember[]>([])
   const openChatsRef      = useRef<OpenChat[]>([])
   const mutedIdsRef       = useRef<Set<string>>(new Set())
-  // Tracks member IDs currently being fetched to prevent duplicate windows on rapid clicks
   const openingRef        = useRef<Set<string>>(new Set())
   const channelRef        = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const groupChannelRef   = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
   const handleIncomingRef = useRef<typeof handleIncoming | null>(null)
+
   const { profile }  = useAuth()
   const onlineIds    = useOnlineIds()
   const { addToast } = useToast()
@@ -64,12 +73,41 @@ export default function ChatTabs() {
       .then((data) => { setMembers(data); membersRef.current = data })
   }, [])
 
+  // Fetch team chat info on mount
+  useEffect(() => {
+    fetch('/api/team-chat')
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.teamId) return
+        setTeamInfo({ teamId: data.teamId, teamName: data.teamName ?? 'Team', memberCount: data.memberCount ?? 0 })
+        setGroupMessages(data.messages ?? [])
+      })
+      .catch(() => { /* no team or error */ })
+  }, [])
+
+  // Subscribe to group chat realtime
+  useEffect(() => {
+    if (!teamInfo?.teamId || !profile?.id) return
+    const supabase = createClient()
+    const myId = profile.id
+
+    const channel = supabase
+      .channel(`team-chat-${teamInfo.teamId}`)
+      .on('broadcast', { event: 'group_message' }, ({ payload }: any) => {
+        if (payload.senderId === myId) return
+        setGroupMessages((prev) => {
+          if (prev.find((m) => m.id === payload.id)) return prev
+          return [...prev, { ...payload, isMe: false }]
+        })
+      })
+      .subscribe()
+
+    groupChannelRef.current = channel
+    return () => { supabase.removeChannel(channel) }
+  }, [teamInfo?.teamId, profile?.id])
+
   const membersWithPresence = members.map((m) => ({ ...m, online: onlineIds.has(m.id) }))
 
-  // Shared handler for incoming messages (called from both postgres_changes and broadcast).
-  // Dual-path delivery ensures messages arrive even when Supabase REPLICA IDENTITY
-  // is not configured — postgres_changes is the primary path, broadcast is the fallback.
-  // Deduplication by message ID prevents doubles when both paths fire simultaneously.
   const handleIncoming = (raw: {
     id: string
     sender_id: string
@@ -106,7 +144,6 @@ export default function ChatTabs() {
         .then((msgs: ChatMessage[]) => {
           setOpenChats((p) => {
             if (p.find((c) => c.member.id === sender.id)) {
-              // Window opened in the meantime — dedup + append if needed
               return p.map((c) => c.member.id === sender.id
                 ? {
                     ...c,
@@ -135,10 +172,9 @@ export default function ChatTabs() {
     }
   }
 
-  // Always keep ref pointing at latest handleIncoming so the subscription closure never goes stale
   handleIncomingRef.current = handleIncoming
 
-  // Realtime: subscribe to inbox channel for both postgres_changes AND broadcast
+  // Realtime: subscribe to inbox channel
   useEffect(() => {
     if (!profile?.id) return
     const myId    = profile.id
@@ -146,7 +182,6 @@ export default function ChatTabs() {
 
     const channel = supabase
       .channel(`inbox-${myId}`)
-      // Primary: postgres_changes scoped to this user as receiver
       .on(
         'postgres_changes' as any,
         { event: 'INSERT', schema: 'public', table: 'messages', filter: `receiver_id=eq.${myId}` },
@@ -160,8 +195,6 @@ export default function ChatTabs() {
           }, myId)
         }
       )
-      // Fallback: broadcast pushed by the sender after their API call succeeds.
-      // Works regardless of postgres_changes / replication configuration.
       .on('broadcast', { event: 'new_message' }, ({ payload }: any) => {
         handleIncomingRef.current?.({
           id:          payload.id,
@@ -178,7 +211,6 @@ export default function ChatTabs() {
   }, [profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openChat = async (member: TeamMember) => {
-    // Prevent duplicate windows from rapid clicks
     if (openingRef.current.has(member.id)) return
     const already = openChatsRef.current.find((c) => c.member.id === member.id)
     if (already) {
@@ -192,7 +224,6 @@ export default function ChatTabs() {
       const data = await res.json()
       const msgs: ChatMessage[] = Array.isArray(data) ? data : []
       setOpenChats((prev) => {
-        // Check again in case it was opened while fetching
         if (prev.find((c) => c.member.id === member.id)) {
           return prev.map((c) => c.member.id === member.id ? { ...c, minimized: false } : c)
         }
@@ -223,14 +254,11 @@ export default function ChatTabs() {
     })
     const msg: ChatMessage = await res.json()
 
-    // Update sender's own window immediately
     setOpenChats((prev) => prev.map((c) => c.member.id === memberId
       ? { ...c, messages: [...c.messages, msg] }
       : c
     ))
 
-    // Broadcast to receiver's inbox channel for guaranteed real-time delivery.
-    // Skip when messaging self — message is already added above.
     if (profile?.id && memberId !== profile.id) {
       const supabase = createClient()
       const ch = supabase.channel(`inbox-${memberId}`)
@@ -252,13 +280,71 @@ export default function ChatTabs() {
     }
   }
 
+  const sendGroupMessage = async (content: string) => {
+    if (!teamInfo || !profile) return
+
+    const res = await fetch('/api/team-chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ content }),
+    })
+    if (!res.ok) return
+
+    const msg: GroupMessage = await res.json()
+
+    // Append own message immediately
+    setGroupMessages((prev) => {
+      if (prev.find((m) => m.id === msg.id)) return prev
+      return [...prev, msg]
+    })
+
+    // Broadcast to team channel (receivers set isMe=false)
+    const supabase = createClient()
+    const ch = supabase.channel(`team-chat-${teamInfo.teamId}`)
+    ch.subscribe((status: string) => {
+      if (status === 'SUBSCRIBED') {
+        ch.send({
+          type:    'broadcast',
+          event:   'group_message',
+          payload: {
+            id:           msg.id,
+            senderId:     profile.id,
+            senderName:   profile.name,
+            senderAvatar: profile.avatar ?? '',
+            content:      msg.content,
+            timestamp:    msg.timestamp,
+            isMe:         false,
+          },
+        }).finally(() => { supabase.removeChannel(ch) })
+      }
+    })
+  }
+
   const minimizedChats = openChats.filter((c) => c.minimized)
   const activeChats    = openChats.filter((c) => !c.minimized)
+
+  const totalOpenCount = openChats.length + (groupChatOpen ? 1 : 0)
 
   return (
     <div className="fixed bottom-0 right-6 z-50 flex items-end gap-3">
 
-      {/* Active (non-minimized) chat windows */}
+      {/* Group chat floating window */}
+      {groupChatOpen && !groupChatMinimized && teamInfo && (
+        <GroupChatWindow
+          teamId={teamInfo.teamId}
+          teamName={teamInfo.teamName}
+          memberCount={teamInfo.memberCount}
+          messages={groupMessages}
+          minimized={false}
+          myId={profile?.id ?? ''}
+          embedded={false}
+          onClose={() => setGroupChatOpen(false)}
+          onMinimize={() => setGroupChatMinimized(true)}
+          onSend={sendGroupMessage}
+        />
+      )}
+
+      {/* Active (non-minimized) individual chat windows */}
       {activeChats.map((chat) => (
         <ChatWindow
           key={chat.member.id}
@@ -278,8 +364,23 @@ export default function ChatTabs() {
       <div className="relative flex-shrink-0 mb-6">
 
         {/* Minimized chat avatars stacked above FAB */}
-        {minimizedChats.length > 0 && (
+        {(minimizedChats.length > 0 || groupChatMinimized) && (
           <div className="absolute bottom-14 right-0 flex flex-col-reverse gap-2 items-center pb-1">
+            {/* Minimized group chat button */}
+            {groupChatMinimized && teamInfo && (
+              <button
+                onClick={() => { setGroupChatMinimized(false); setGroupChatOpen(true) }}
+                title={teamInfo.teamName + ' (Group)'}
+                className="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.9) 0%, rgba(139,92,246,0.8) 100%)',
+                  border:     '2px solid rgba(99,102,241,0.7)',
+                  boxShadow:  '0 4px 14px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.2)',
+                }}
+              >
+                <Users className="w-4 h-4 text-white" />
+              </button>
+            )}
             {minimizedChats.map((chat) => (
               <button
                 key={chat.member.id}
@@ -308,6 +409,43 @@ export default function ChatTabs() {
               </button>
             </div>
             <div className="max-h-72 overflow-y-auto p-2 space-y-0.5">
+
+              {/* Group chat entry — top of picker */}
+              {teamInfo && (
+                <button
+                  onClick={() => { setGroupChatOpen(true); setGroupChatMinimized(false); setPickerOpen(false) }}
+                  className="w-full flex items-center gap-2 px-2 py-2 rounded-xl transition-colors text-left"
+                  style={{
+                    background: 'rgba(99,102,241,0.15)',
+                    border:     '1px solid rgba(99,102,241,0.3)',
+                  }}
+                >
+                  <div
+                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{
+                      background: 'linear-gradient(135deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.4) 100%)',
+                      border:     '1px solid rgba(99,102,241,0.5)',
+                    }}
+                  >
+                    <Users className="w-4 h-4 text-indigo-300" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs font-semibold text-white truncate">Team Chat</p>
+                      <span
+                        className="text-[9px] px-1 py-0.5 rounded font-bold tracking-wide flex-shrink-0"
+                        style={{ background: 'rgba(99,102,241,0.4)', color: '#a5b4fc' }}
+                      >
+                        GROUP
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-white/35 truncate">{teamInfo.memberCount} members</p>
+                  </div>
+                </button>
+              )}
+
+              {teamInfo && <div className="my-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }} />}
+
               {/* Self-chat entry */}
               {profile && (() => {
                 const selfMember: TeamMember = {
@@ -386,12 +524,12 @@ export default function ChatTabs() {
           }}
         >
           <MessageCircle className="w-5 h-5 group-hover:scale-110 transition-transform text-white" />
-          {openChats.length > 0 && (
+          {totalOpenCount > 0 && (
             <span
               className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-white text-[10px] flex items-center justify-center font-bold"
               style={{ background: '#ef4444', border: '2px solid #0a0a0f' }}
             >
-              {openChats.length}
+              {totalOpenCount}
             </span>
           )}
         </button>

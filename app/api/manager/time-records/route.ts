@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logError } from '@/lib/logger'
+import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,7 +19,10 @@ function mapRecord(r: any) {
 export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!user) {
+    logInfo('manager/time-records/GET 401', 'Unauthorized: no session')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -28,6 +31,7 @@ export async function GET(request: Request) {
     .single()
 
   if (profile?.role !== 'manager') {
+    logInfo('manager/time-records/GET 403', 'Forbidden: not a manager')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
@@ -40,6 +44,7 @@ export async function GET(request: Request) {
     const { data: target } = await supabase
       .from('profiles').select('team_id').eq('id', userId).single()
     if (target?.team_id !== profile.team_id) {
+      logInfo('manager/time-records/GET 403', 'Forbidden: user not in same team')
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
   }

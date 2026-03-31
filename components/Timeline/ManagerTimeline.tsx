@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ChevronDown, Clock, LogIn, LogOut, Timer, User, RefreshCw } from 'lucide-react'
 import ManagerScheduleEditor from './ManagerScheduleEditor'
 import { createClient } from '@/lib/supabase/client'
 import { formatDate, formatDuration } from '@/lib/time-utils'
 import type { TeamMember } from '@/lib/mock-data'
 import AvatarImage from '@/components/AvatarImage'
+import { useAuth } from '@/lib/auth-context'
 
 type TimeRecord = {
   id: string
@@ -22,6 +23,7 @@ const MONTHS = [
 ]
 
 export default function ManagerTimeline() {
+  const { profile }      = useAuth()
   const [members,        setMembers]        = useState<TeamMember[]>([])
   const [selected,       setSelected]       = useState<TeamMember | null>(null)
   const [records,        setRecords]        = useState<TimeRecord[]>([])
@@ -29,6 +31,18 @@ export default function ManagerTimeline() {
   const [dropdownOpen,   setDropdownOpen]   = useState(false)
   const [filterYear,     setFilterYear]     = useState<number | null>(null)
   const [filterMonth,    setFilterMonth]    = useState<number | null>(null)
+
+  // Manager's own entry — prepended at the top of the list
+  const managerEntry = useMemo<TeamMember | null>(() => {
+    if (!profile) return null
+    return {
+      id:     profile.id,
+      name:   profile.name,
+      role:   profile.role,
+      avatar: profile.avatar ?? profile.name?.slice(0, 2).toUpperCase() ?? '??',
+      online: profile.online,
+    }
+  }, [profile])
 
   // Load all team members
   useEffect(() => {
@@ -124,34 +138,45 @@ export default function ManagerTimeline() {
               boxShadow:   '0 8px 32px rgba(0,0,0,0.55)',
             }}
           >
-            {members.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => {
-                  setSelected(m)
-                  setDropdownOpen(false)
-                  setFilterYear(null)
-                  setFilterMonth(null)
-                }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
-                style={selected?.id === m.id ? { background: 'rgba(79,70,229,0.12)' } : {}}
-              >
-                <div
-                  className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
-                  style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}
+            {[...(managerEntry ? [managerEntry] : []), ...members].map((m) => {
+              const isManager = m.id === profile?.id
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => {
+                    setSelected(m)
+                    setDropdownOpen(false)
+                    setFilterYear(null)
+                    setFilterMonth(null)
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-left hover:bg-white/5 transition-colors"
+                  style={selected?.id === m.id ? { background: 'rgba(79,70,229,0.12)' } : {}}
                 >
-                  <AvatarImage src={m.avatar} alt={m.name} fallback={m.name?.slice(0,2).toUpperCase() ?? '??'} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{m.name}</p>
-                  <p className="text-[10px] text-white/35 capitalize">{m.role}</p>
-                </div>
-                {selected?.id === m.id && (
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6366f1' }} />
-                )}
-              </button>
-            ))}
-            {members.length === 0 && (
+                  <div
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 overflow-hidden"
+                    style={{ background: 'rgba(79,70,229,0.25)', border: '1px solid rgba(79,70,229,0.35)' }}
+                  >
+                    <AvatarImage src={m.avatar} alt={m.name} fallback={m.name?.slice(0,2).toUpperCase() ?? '??'} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">
+                      {m.name}
+                      {isManager && (
+                        <span className="ml-1.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-md"
+                          style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc' }}>
+                          You
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-white/35 capitalize">{m.role}</p>
+                  </div>
+                  {selected?.id === m.id && (
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#6366f1' }} />
+                  )}
+                </button>
+              )
+            })}
+            {!managerEntry && members.length === 0 && (
               <p className="text-xs text-white/25 text-center py-6">No team members found</p>
             )}
           </div>

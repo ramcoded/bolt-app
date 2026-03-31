@@ -1,4 +1,5 @@
 import MemberBoard from '@/components/Team/MemberBoard'
+import GroupChatPanel from '@/components/Team/GroupChatPanel'
 
 export default function TeamPage() {
   return (
@@ -7,7 +8,14 @@ export default function TeamPage() {
         <h1 className="text-2xl font-bold text-white">Team</h1>
         <p className="text-sm text-white/40 mt-1">Message your teammates directly.</p>
       </div>
-      <MemberBoard />
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="xl:col-span-2">
+          <MemberBoard />
+        </div>
+        <div className="xl:col-span-1">
+          <GroupChatPanel />
+        </div>
+      </div>
     </div>
   )
 }
