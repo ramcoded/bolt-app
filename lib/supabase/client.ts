@@ -26,7 +26,12 @@ export function createClient() {
               let cookie = `${name}=${value}; path=${path}`
               if (domain) cookie += `; domain=${domain}`
               if (secure) cookie += `; secure`
-              if (sameSite) cookie += `; samesite=${sameSite}`
+              // Always set SameSite explicitly (default to 'lax') so the PKCE code-verifier
+              // cookie is reliably sent when Google redirects back to /auth/callback.
+              // Without an explicit attribute, some browsers (Safari ITP, Firefox strict mode,
+              // managed/corporate browsers) deviate from the Chrome default and drop the cookie,
+              // causing exchangeCodeForSession to fail on certain networks.
+              cookie += `; samesite=${sameSite ?? 'lax'}`
               document.cookie = cookie
             })
           },
