@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Users, X, Minus, Send } from 'lucide-react'
+import { Users, X, Minus, Send, Loader2 } from 'lucide-react'
 import AvatarImage from '@/components/AvatarImage'
 
 export type GroupMessage = {
@@ -21,6 +21,7 @@ interface GroupChatWindowProps {
   messages: GroupMessage[]
   minimized: boolean
   myId: string
+  isSending?: boolean
   embedded?: boolean
   onClose?: () => void
   onMinimize?: () => void
@@ -34,6 +35,7 @@ export default function GroupChatWindow({
   messages,
   minimized,
   myId,
+  isSending = false,
   embedded = false,
   onClose,
   onMinimize,
@@ -48,7 +50,7 @@ export default function GroupChatWindow({
 
   const handleSend = () => {
     const text = input.trim()
-    if (!text) return
+    if (!text || isSending) return
     onSend(text)
     setInput('')
   }
@@ -124,13 +126,20 @@ export default function GroupChatWindow({
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSend()}
             placeholder="Message the team..."
-            className="flex-1 text-xs text-white placeholder-white/25 outline-none px-3 py-1.5 rounded-xl"
+            disabled={isSending}
+            className="flex-1 text-xs text-white placeholder-white/25 outline-none px-3 py-1.5 rounded-xl disabled:opacity-50"
             style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
           />
-          <button onClick={handleSend}
-            className="p-1.5 rounded-xl text-white transition-colors"
-            style={{ background: 'var(--bolt-accent)' }}>
-            <Send className="w-3 h-3" />
+          <button
+            onClick={handleSend}
+            disabled={isSending}
+            className="p-1.5 rounded-xl text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: 'var(--bolt-accent)' }}
+          >
+            {isSending
+              ? <Loader2 className="w-3 h-3 animate-spin" />
+              : <Send className="w-3 h-3" />
+            }
           </button>
         </div>
       </div>
@@ -244,13 +253,20 @@ export default function GroupChatWindow({
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               placeholder="Message the team..."
-              className="flex-1 text-xs text-white placeholder-white/25 outline-none px-3 py-1.5 rounded-xl"
+              disabled={isSending}
+              className="flex-1 text-xs text-white placeholder-white/25 outline-none px-3 py-1.5 rounded-xl disabled:opacity-50"
               style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.06)' }}
             />
-            <button onClick={handleSend}
-              className="p-1.5 rounded-xl text-white transition-colors"
-              style={{ background: 'var(--bolt-accent)' }}>
-              <Send className="w-3 h-3" />
+            <button
+              onClick={handleSend}
+              disabled={isSending}
+              className="p-1.5 rounded-xl text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ background: 'var(--bolt-accent)' }}
+            >
+              {isSending
+                ? <Loader2 className="w-3 h-3 animate-spin" />
+                : <Send className="w-3 h-3" />
+              }
             </button>
           </div>
         </>

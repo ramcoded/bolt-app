@@ -14,6 +14,7 @@ export default function GroupChatPanel() {
   const [memberCount, setMemberCount] = useState(0)
   const [loading,     setLoading]     = useState(true)
   const [noTeam,      setNoTeam]      = useState(false)
+  const [isSending,   setIsSending]   = useState(false)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
 
   useEffect(() => {
@@ -41,8 +42,34 @@ export default function GroupChatPanel() {
 
     const channel = supabase
       .channel(`team-chat-${teamId}`)
+      .on(
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'team_messages', filter: `team_id=eq.${teamId}` },
+        async (payload: any) => {
+          if (payload.new.sender_id === myId) return
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('name, avatar')
+            .eq('id', payload.new.sender_id)
+            .single()
+          const msg: GroupMessage = {
+            id:           payload.new.id,
+            senderId:     payload.new.sender_id,
+            senderName:   senderProfile?.name ?? 'Unknown',
+            senderAvatar: senderProfile?.avatar ?? '',
+            content:      payload.new.content,
+            timestamp:    new Date(payload.new.created_at).toLocaleTimeString('en-US', {
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            }),
+            isMe: false,
+          }
+          setMessages((prev) => {
+            if (prev.find((m) => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
+        }
+      )
       .on('broadcast', { event: 'group_message' }, ({ payload }: any) => {
-        // Only append messages from others (sender already appended own message locally)
         if (payload.senderId === myId) return
         setMessages((prev) => {
           if (prev.find((m) => m.id === payload.id)) return prev
@@ -53,47 +80,52 @@ export default function GroupChatPanel() {
 
     channelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [teamId, profile?.id])
+  }, [teamId, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSend = async (content: string) => {
-    if (!teamId || !profile) return
+    if (!teamId || !profile || isSending) return
+    setIsSending(true)
 
-    const res = await fetch('/api/team-chat', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ content }),
-    })
+    try {
+      const res = await fetch('/api/team-chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ content }),
+      })
 
-    if (!res.ok) return
+      if (!res.ok) return
 
-    const msg: GroupMessage = await res.json()
+      const msg: GroupMessage = await res.json()
 
-    // Append own message immediately
-    setMessages((prev) => {
-      if (prev.find((m) => m.id === msg.id)) return prev
-      return [...prev, msg]
-    })
+      // Append own message immediately
+      setMessages((prev) => {
+        if (prev.find((m) => m.id === msg.id)) return prev
+        return [...prev, msg]
+      })
 
-    // Broadcast to other team members
-    const supabase = createClient()
-    const ch = supabase.channel(`team-chat-${teamId}`)
-    ch.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        ch.send({
-          type:    'broadcast',
-          event:   'group_message',
-          payload: {
-            id:           msg.id,
-            senderId:     profile.id,
-            senderName:   profile.name,
-            senderAvatar: profile.avatar ?? '',
-            content:      msg.content,
-            timestamp:    msg.timestamp,
-            isMe:         false,
-          },
-        }).finally(() => { supabase.removeChannel(ch) })
-      }
-    })
+      // Broadcast to other team members
+      const supabase = createClient()
+      const ch = supabase.channel(`team-chat-${teamId}`)
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          ch.send({
+            type:    'broadcast',
+            event:   'group_message',
+            payload: {
+              id:           msg.id,
+              senderId:     profile.id,
+              senderName:   profile.name,
+              senderAvatar: profile.avatar ?? '',
+              content:      msg.content,
+              timestamp:    msg.timestamp,
+              isMe:         false,
+            },
+          }).finally(() => { supabase.removeChannel(ch) })
+        }
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   if (loading) {
@@ -187,6 +219,7 @@ export default function GroupChatPanel() {
         messages={messages}
         minimized={false}
         myId={profile?.id ?? ''}
+        isSending={isSending}
         embedded={true}
         onSend={handleSend}
       />

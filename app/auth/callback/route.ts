@@ -6,7 +6,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
-  const role = searchParams.get('role') === 'manager' ? 'manager' : 'manager'
+  const role = searchParams.get('role') === 'manager' ? 'manager' : 'member'
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`)

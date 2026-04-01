@@ -42,22 +42,27 @@ export default function ChatTabs() {
   const [groupChatMinimized, setGroupChatMinimized] = useState(false)
   const [groupMessages,      setGroupMessages]      = useState<GroupMessage[]>([])
   const [teamInfo,           setTeamInfo]           = useState<TeamInfo | null>(null)
+  const [groupSending,       setGroupSending]       = useState(false)
 
-  const membersRef        = useRef<TeamMember[]>([])
-  const openChatsRef      = useRef<OpenChat[]>([])
-  const mutedIdsRef       = useRef<Set<string>>(new Set())
-  const openingRef        = useRef<Set<string>>(new Set())
-  const channelRef        = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-  const groupChannelRef   = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
-  const handleIncomingRef = useRef<typeof handleIncoming | null>(null)
+  const membersRef           = useRef<TeamMember[]>([])
+  const openChatsRef         = useRef<OpenChat[]>([])
+  const mutedIdsRef          = useRef<Set<string>>(new Set())
+  const openingRef           = useRef<Set<string>>(new Set())
+  const channelRef           = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const groupChannelRef      = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
+  const handleIncomingRef    = useRef<typeof handleIncoming | null>(null)
+  const groupChatOpenRef     = useRef(false)
+  const groupChatMinimizedRef = useRef(false)
 
   const { profile }  = useAuth()
   const onlineIds    = useOnlineIds()
   const { addToast } = useToast()
 
   // Keep refs in sync for use inside realtime closures
-  useEffect(() => { openChatsRef.current = openChats }, [openChats])
-  useEffect(() => { mutedIdsRef.current  = mutedIds  }, [mutedIds])
+  useEffect(() => { openChatsRef.current          = openChats          }, [openChats])
+  useEffect(() => { mutedIdsRef.current           = mutedIds           }, [mutedIds])
+  useEffect(() => { groupChatOpenRef.current      = groupChatOpen      }, [groupChatOpen])
+  useEffect(() => { groupChatMinimizedRef.current = groupChatMinimized }, [groupChatMinimized])
 
   // Load muted IDs from localStorage
   useEffect(() => {
@@ -93,18 +98,53 @@ export default function ChatTabs() {
 
     const channel = supabase
       .channel(`team-chat-${teamInfo.teamId}`)
+      .on(
+        'postgres_changes' as any,
+        { event: 'INSERT', schema: 'public', table: 'team_messages', filter: `team_id=eq.${teamInfo.teamId}` },
+        async (payload: any) => {
+          if (payload.new.sender_id === myId) return
+          const { data: senderProfile } = await supabase
+            .from('profiles')
+            .select('name, avatar')
+            .eq('id', payload.new.sender_id)
+            .single()
+          const msg: GroupMessage = {
+            id:           payload.new.id,
+            senderId:     payload.new.sender_id,
+            senderName:   senderProfile?.name ?? 'Unknown',
+            senderAvatar: senderProfile?.avatar ?? '',
+            content:      payload.new.content,
+            timestamp:    new Date(payload.new.created_at).toLocaleTimeString('en-US', {
+              hour: '2-digit', minute: '2-digit', hour12: false,
+            }),
+            isMe: false,
+          }
+          setGroupMessages((prev) => {
+            if (prev.find((m) => m.id === msg.id)) return prev
+            return [...prev, msg]
+          })
+          if (!groupChatOpenRef.current || groupChatMinimizedRef.current) {
+            playNotifSound()
+            addToast(senderProfile?.name ?? 'Team', payload.new.content, 'message')
+          }
+        }
+      )
       .on('broadcast', { event: 'group_message' }, ({ payload }: any) => {
         if (payload.senderId === myId) return
         setGroupMessages((prev) => {
           if (prev.find((m) => m.id === payload.id)) return prev
           return [...prev, { ...payload, isMe: false }]
         })
+        if (!groupChatOpenRef.current || groupChatMinimizedRef.current) {
+          playNotifSound()
+          addToast(payload.senderName ?? 'Team', payload.content, 'message')
+        }
       })
       .subscribe()
 
     groupChannelRef.current = channel
     return () => { supabase.removeChannel(channel) }
-  }, [teamInfo?.teamId, profile?.id])
+  }, [teamInfo?.teamId, profile?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const membersWithPresence = members.map((m) => ({ ...m, online: onlineIds.has(m.id) }))
 
@@ -281,43 +321,48 @@ export default function ChatTabs() {
   }
 
   const sendGroupMessage = async (content: string) => {
-    if (!teamInfo || !profile) return
+    if (!teamInfo || !profile || groupSending) return
+    setGroupSending(true)
 
-    const res = await fetch('/api/team-chat', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ content }),
-    })
-    if (!res.ok) return
+    try {
+      const res = await fetch('/api/team-chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ content }),
+      })
+      if (!res.ok) return
 
-    const msg: GroupMessage = await res.json()
+      const msg: GroupMessage = await res.json()
 
-    // Append own message immediately
-    setGroupMessages((prev) => {
-      if (prev.find((m) => m.id === msg.id)) return prev
-      return [...prev, msg]
-    })
+      // Append own message immediately
+      setGroupMessages((prev) => {
+        if (prev.find((m) => m.id === msg.id)) return prev
+        return [...prev, msg]
+      })
 
-    // Broadcast to team channel (receivers set isMe=false)
-    const supabase = createClient()
-    const ch = supabase.channel(`team-chat-${teamInfo.teamId}`)
-    ch.subscribe((status: string) => {
-      if (status === 'SUBSCRIBED') {
-        ch.send({
-          type:    'broadcast',
-          event:   'group_message',
-          payload: {
-            id:           msg.id,
-            senderId:     profile.id,
-            senderName:   profile.name,
-            senderAvatar: profile.avatar ?? '',
-            content:      msg.content,
-            timestamp:    msg.timestamp,
-            isMe:         false,
-          },
-        }).finally(() => { supabase.removeChannel(ch) })
-      }
-    })
+      // Broadcast to team channel (receivers set isMe=false)
+      const supabase = createClient()
+      const ch = supabase.channel(`team-chat-${teamInfo.teamId}`)
+      ch.subscribe((status: string) => {
+        if (status === 'SUBSCRIBED') {
+          ch.send({
+            type:    'broadcast',
+            event:   'group_message',
+            payload: {
+              id:           msg.id,
+              senderId:     profile.id,
+              senderName:   profile.name,
+              senderAvatar: profile.avatar ?? '',
+              content:      msg.content,
+              timestamp:    msg.timestamp,
+              isMe:         false,
+            },
+          }).finally(() => { supabase.removeChannel(ch) })
+        }
+      })
+    } finally {
+      setGroupSending(false)
+    }
   }
 
   const minimizedChats = openChats.filter((c) => c.minimized)
@@ -337,6 +382,7 @@ export default function ChatTabs() {
           messages={groupMessages}
           minimized={false}
           myId={profile?.id ?? ''}
+          isSending={groupSending}
           embedded={false}
           onClose={() => setGroupChatOpen(false)}
           onMinimize={() => setGroupChatMinimized(true)}

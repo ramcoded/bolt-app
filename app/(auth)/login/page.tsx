@@ -11,7 +11,14 @@ export default function LoginPage() {
   const [loading,  setLoading] = useState(false)
 
   // Prevent Dark Reader hydration mismatch by rendering only on the client
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    setMounted(true)
+    // Show error from OAuth callback redirect (e.g. ?error=auth)
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('error') === 'missing_code' || params.get('error') === 'auth') {
+      setError('Google sign-in failed. Please try again.')
+    }
+  }, [])
   if (!mounted) return null
 
   async function handleGoogleSignIn() {
@@ -46,12 +53,31 @@ export default function LoginPage() {
     const handler = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
       if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
+        clearTimeout(timeout)
         window.removeEventListener('message', handler)
         popup.close()
         window.location.href = event.data.redirectTo ?? '/'
       }
     }
     window.addEventListener('message', handler)
+
+    // Detect if popup was closed without completing auth
+    const timeout = setTimeout(() => {
+      if (!popup.closed) return
+      window.removeEventListener('message', handler)
+      setError('Google sign-in was cancelled or failed. Please try again.')
+    }, 180_000)
+
+    const pollClosed = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(pollClosed)
+        clearTimeout(timeout)
+        // Give the message handler a moment to fire first
+        setTimeout(() => {
+          window.removeEventListener('message', handler)
+        }, 500)
+      }
+    }, 500)
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

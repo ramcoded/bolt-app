@@ -11,10 +11,15 @@ export async function createClient() {
         getAll: () => cookieStore.getAll(),
         setAll: (cookiesToSet) =>
           cookiesToSet.forEach(({ name, value, options }) => {
-            // Strip maxAge/expires so auth cookies are session-only.
-            // This prevents auto-login after the browser is closed and reopened.
-            const { maxAge, expires, ...sessionOptions } = options ?? {}
-            cookieStore.set(name, value, sessionOptions)
+            try {
+              // Strip maxAge/expires so auth cookies are session-only.
+              // This prevents auto-login after the browser is closed and reopened.
+              const { maxAge, expires, ...sessionOptions } = options ?? {}
+              cookieStore.set(name, value, sessionOptions)
+            } catch {
+              // setAll was called from a Server Component — cookie writes are not
+              // allowed there. The middleware handles session refresh instead.
+            }
           }),
       },
     }
