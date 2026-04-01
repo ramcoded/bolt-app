@@ -3,7 +3,10 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
-  const response = NextResponse.next()
+  // Use the pattern recommended by Supabase SSR: forward refreshed cookies to
+  // the request so downstream Server Components receive a fresh token without
+  // attempting another refresh (which would throw in Server Component context).
+  let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,14 +14,22 @@ export async function proxy(request: NextRequest) {
     {
       cookies: {
         getAll: () => request.cookies.getAll(),
-        setAll: (cookiesToSet) =>
-          cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
-          ),
+        setAll: (cookiesToSet) => {
+          // Write refreshed cookies into the request so server components see them
+          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+          supabaseResponse = NextResponse.next({ request })
+          cookiesToSet.forEach(({ name, value, options }) => {
+            // Strip maxAge/expires so auth cookies are session-only.
+            // This prevents auto-login after the browser is closed and reopened.
+            const { maxAge, expires, ...sessionOptions } = options ?? {}
+            supabaseResponse.cookies.set(name, value, sessionOptions)
+          })
+        },
       },
     }
   )
 
+  // Refresh the session if expired — must happen before any Server Component reads auth
   const { data: { user } } = await supabase.auth.getUser()
   const { pathname } = request.nextUrl
 
@@ -58,7 +69,7 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  return response
+  return supabaseResponse
 }
 
 export const config = {
