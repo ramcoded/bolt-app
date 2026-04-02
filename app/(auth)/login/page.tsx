@@ -24,10 +24,24 @@ export default function LoginPage() {
   async function handleGoogleSignIn() {
     const supabase = createClient()
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? window.location.origin
+    const redirectTo = `${appUrl}/auth/callback?role=manager`
+
+    // Mobile browsers block popups and strip window.opener — use direct redirect
+    const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+
+    if (isMobile) {
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo },
+      })
+      return
+    }
+
+    // Desktop: popup approach for better UX (stay on current page)
     const { data } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${appUrl}/auth/callback?role=manager`,
+        redirectTo,
         skipBrowserRedirect: true,
       },
     })
