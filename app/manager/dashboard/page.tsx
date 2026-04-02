@@ -375,7 +375,7 @@ export default function ManagerDashboard() {
     <div className="min-h-screen" style={{ background: '#0a0a0f' }}>
 
       {/* Top bar */}
-      <div className="sticky top-0 z-40 border-b px-6 py-4 flex items-center justify-between"
+      <div className="sticky top-0 z-40 border-b px-4 sm:px-6 py-4 flex items-center justify-between"
         style={{ background: 'rgba(10,10,15,0.95)', backdropFilter: 'blur(24px)', borderColor: 'rgba(255,255,255,0.07)' }}>
         <div className="flex items-center gap-3">
           <Link href="/" className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white transition-colors">

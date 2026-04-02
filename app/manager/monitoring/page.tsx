@@ -381,7 +381,8 @@ export default function MonitoringPage() {
             No team members found
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.04]">
+          <div className="overflow-x-auto">
+          <div className="divide-y divide-white/[0.04] min-w-[600px]">
             {/* Column headers */}
             <div
               className="grid px-5 py-2.5 text-xs text-white/25 uppercase tracking-wider"
@@ -398,6 +399,7 @@ export default function MonitoringPage() {
             {enriched.map((m) => (
               <MemberRow key={m.id} member={m} />
             ))}
+          </div>
           </div>
         )}
       </div>

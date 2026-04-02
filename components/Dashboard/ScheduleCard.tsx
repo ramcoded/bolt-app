@@ -55,7 +55,7 @@ export default function ScheduleCard() {
         <span className="text-xs font-semibold text-white/60">My Week</span>
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-1 sm:gap-2">
         {DAYS.map((label, i) => {
           const date     = weekDate(i)
           const override = overrideMap[date]
@@ -72,7 +72,7 @@ export default function ScheduleCard() {
           return (
             <div
               key={i}
-              className="flex flex-col items-center gap-1 px-2 py-2.5 rounded-xl relative"
+              className="flex flex-col items-center gap-1 px-1 py-2 sm:px-2 sm:py-2.5 rounded-xl relative"
               style={{
                 background: isToday
                   ? 'rgba(99,102,241,0.15)'

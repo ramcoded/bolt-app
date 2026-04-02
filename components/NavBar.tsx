@@ -114,7 +114,7 @@ export default function NavBar() {
               <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <button
                   onClick={() => setModal('in')}
-                  className="px-3 py-2 text-xs font-semibold transition-all duration-200"
+                  className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
                     timedIn
                       ? { background: '#16a34a', color: '#fff', boxShadow: '0 0 12px rgba(22,163,74,0.4)' }
@@ -126,7 +126,7 @@ export default function NavBar() {
                 <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
                 <button
                   onClick={() => setModal('out')}
-                  className="px-3 py-2 text-xs font-semibold transition-all duration-200"
+                  className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
                     !timedIn
                       ? { background: 'var(--bolt-accent)', color: '#fff', boxShadow: '0 0 12px rgba(79,70,229,0.4)' }

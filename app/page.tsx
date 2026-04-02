@@ -15,11 +15,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Schedule bar + today's mini card side by side */}
-      <div className="mb-5 flex gap-4 items-stretch">
+      <div className="mb-5 flex flex-col sm:flex-row gap-4 items-stretch">
         <div className="flex-1 min-w-0">
           <ScheduleCard />
         </div>
-        <div className="flex-shrink-0 w-44">
+        <div className="sm:flex-shrink-0 sm:w-44">
           <TodayHoursCard />
         </div>
       </div>
