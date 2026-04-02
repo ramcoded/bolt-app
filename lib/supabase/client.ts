@@ -20,17 +20,20 @@ export function createClient() {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options = {} }) => {
-              // Omit maxAge/expires — session-only cookies are cleared on browser close,
+              // Omit maxAge/expires for session cookies — cleared on browser close,
               // preventing auto-login on the next browser session.
+              // EXCEPTION: preserve maxAge for the PKCE code-verifier cookie so it
+              // survives the cross-site redirect chain (your app → Google → Supabase →
+              // your app). iOS Safari ITP and some mobile browsers drop session-only
+              // cookies during cross-site redirects, causing exchangeCodeForSession to
+              // fail with error=auth on mobile networks.
               const { maxAge, expires, path = '/', domain, secure, sameSite } = options as any
               let cookie = `${name}=${value}; path=${path}`
               if (domain) cookie += `; domain=${domain}`
               if (secure) cookie += `; secure`
-              // Always set SameSite explicitly (default to 'lax') so the PKCE code-verifier
-              // cookie is reliably sent when Google redirects back to /auth/callback.
-              // Without an explicit attribute, some browsers (Safari ITP, Firefox strict mode,
-              // managed/corporate browsers) deviate from the Chrome default and drop the cookie,
-              // causing exchangeCodeForSession to fail on certain networks.
+              if (maxAge !== undefined && name.includes('code-verifier')) {
+                cookie += `; max-age=${maxAge}`
+              }
               cookie += `; samesite=${sameSite ?? 'lax'}`
               document.cookie = cookie
             })
