@@ -287,6 +287,20 @@ export default function ChatTabs() {
   }
 
   const sendMessage = async (memberId: string, content: string) => {
+    const tempId = `temp-${Date.now()}`
+    const optimistic: ChatMessage = {
+      id:        tempId,
+      senderId:  profile?.id ?? 'me',
+      content,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      read:      false,
+      sending:   true,
+    }
+    setOpenChats((prev) => prev.map((c) => c.member.id === memberId
+      ? { ...c, messages: [...c.messages, optimistic] }
+      : c
+    ))
+
     const res = await fetch('/api/messages', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -295,27 +309,19 @@ export default function ChatTabs() {
     const msg: ChatMessage = await res.json()
 
     setOpenChats((prev) => prev.map((c) => c.member.id === memberId
-      ? { ...c, messages: [...c.messages, msg] }
+      ? { ...c, messages: c.messages.map((m) => m.id === tempId ? msg : m) }
       : c
     ))
 
     if (profile?.id && memberId !== profile.id) {
       const supabase = createClient()
       const ch = supabase.channel(`inbox-${memberId}`)
-      ch.subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          ch.send({
-            type:    'broadcast',
-            event:   'new_message',
-            payload: {
-              id:          msg.id,
-              sender_id:   profile.id,
-              receiver_id: memberId,
-              content:     msg.content,
-              created_at:  new Date().toISOString(),
-            },
-          }).finally(() => { supabase.removeChannel(ch) })
-        }
+      ch.httpSend('new_message', {
+        id:          msg.id,
+        sender_id:   profile.id,
+        receiver_id: memberId,
+        content:     msg.content,
+        created_at:  new Date().toISOString(),
       })
     }
   }
@@ -324,41 +330,48 @@ export default function ChatTabs() {
     if (!teamInfo || !profile || groupSending) return
     setGroupSending(true)
 
+    const tempId = `temp-${Date.now()}`
+    const optimistic: GroupMessage = {
+      id:           tempId,
+      senderId:     profile.id,
+      senderName:   profile.name,
+      senderAvatar: profile.avatar ?? '',
+      content,
+      timestamp:    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      isMe:         true,
+      sending:      true,
+    }
+    setGroupMessages((prev) => [...prev, optimistic])
+
     try {
       const res = await fetch('/api/team-chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ content }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        setGroupMessages((prev) => prev.filter((m) => m.id !== tempId))
+        return
+      }
 
       const msg: GroupMessage = await res.json()
 
-      // Append own message immediately
       setGroupMessages((prev) => {
-        if (prev.find((m) => m.id === msg.id)) return prev
-        return [...prev, msg]
+        if (prev.find((m) => m.id === msg.id)) return prev.filter((m) => m.id !== tempId)
+        return prev.map((m) => m.id === tempId ? msg : m)
       })
 
       // Broadcast to team channel (receivers set isMe=false)
       const supabase = createClient()
       const ch = supabase.channel(`team-chat-${teamInfo.teamId}`)
-      ch.subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          ch.send({
-            type:    'broadcast',
-            event:   'group_message',
-            payload: {
-              id:           msg.id,
-              senderId:     profile.id,
-              senderName:   profile.name,
-              senderAvatar: profile.avatar ?? '',
-              content:      msg.content,
-              timestamp:    msg.timestamp,
-              isMe:         false,
-            },
-          }).finally(() => { supabase.removeChannel(ch) })
-        }
+      ch.httpSend('group_message', {
+        id:           msg.id,
+        senderId:     profile.id,
+        senderName:   profile.name,
+        senderAvatar: profile.avatar ?? '',
+        content:      msg.content,
+        timestamp:    msg.timestamp,
+        isMe:         false,
       })
     } finally {
       setGroupSending(false)

@@ -100,9 +100,16 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     const formData = new FormData(e.currentTarget)
-    const result = await login(formData)
-    if (result?.error) {
-      setError(result.error)
+    try {
+      const result = await login(formData)
+      if (result?.error) {
+        setError(result.error)
+        setLoading(false)
+      }
+    } catch (err: any) {
+      // Next.js redirect() throws NEXT_REDIRECT internally — not a real error
+      if (err?.digest?.startsWith('NEXT_REDIRECT')) return
+      setError('Something went wrong. Please try again.')
       setLoading(false)
     }
   }

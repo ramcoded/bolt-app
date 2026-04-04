@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Users, X, Minus, Send, Loader2 } from 'lucide-react'
+import { Users, X, Minus, Send, Loader2, Check } from 'lucide-react'
 import AvatarImage from '@/components/AvatarImage'
 
 export type GroupMessage = {
@@ -12,6 +12,7 @@ export type GroupMessage = {
   content: string
   timestamp: string
   isMe: boolean
+  sending?: boolean
 }
 
 interface GroupChatWindowProps {
@@ -80,41 +81,58 @@ export default function GroupChatWindow({
               No messages yet. Start the conversation!
             </p>
           )}
-          {safeMessages.map((msg, i) => {
-            const showMeta = !msg.isMe && isNewRun(i)
-            return (
-              <div key={msg.id} className={`flex flex-col w-full ${msg.isMe ? 'items-end' : 'items-start'}`}>
-                {showMeta && (
-                  <div className="flex items-center gap-1.5 mb-0.5 ml-8">
-                    <span className="text-[10px] text-white/50">{msg.senderName}</span>
+          {(() => {
+            const myMsgs = safeMessages.filter((m) => m.isMe)
+            const lastMyMsgId = myMsgs[myMsgs.length - 1]?.id
+            return safeMessages.map((msg, i) => {
+              const showMeta = !msg.isMe && isNewRun(i)
+              const isLastMine = msg.isMe && msg.id === lastMyMsgId
+              return (
+                <div key={msg.id} className={`flex flex-col w-full ${msg.isMe ? 'items-end' : 'items-start'}`}>
+                  {showMeta && (
+                    <div className="flex items-center gap-1.5 mb-0.5 ml-8">
+                      <span className="text-[10px] text-white/50">{msg.senderName}</span>
+                    </div>
+                  )}
+                  <div className={`flex items-end gap-1.5 max-w-[82%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                    {!msg.isMe && (
+                      <div className="flex-shrink-0 mb-1">
+                        {isNewRun(i) ? (
+                          <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center"
+                            style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
+                            <AvatarImage src={msg.senderAvatar} alt={msg.senderName} />
+                          </div>
+                        ) : (
+                          <div className="w-6 h-6" />
+                        )}
+                      </div>
+                    )}
+                    <div
+                      className={`flex-1 min-w-0 px-3 py-1.5 rounded-2xl text-xs leading-relaxed ${msg.isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                      style={msg.isMe
+                        ? { background: 'var(--bolt-accent)', color: '#fff' }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' }}
+                    >
+                      <p>{msg.content}</p>
+                      <p className="text-[10px] opacity-45 mt-0.5 text-right">{msg.timestamp}</p>
+                    </div>
                   </div>
-                )}
-                <div className={`flex items-end gap-1.5 max-w-[82%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                  {!msg.isMe && (
-                    <div className="flex-shrink-0 mb-1">
-                      {isNewRun(i) ? (
-                        <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center"
-                          style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
-                          <AvatarImage src={msg.senderAvatar} alt={msg.senderName} />
-                        </div>
+                  {isLastMine && (
+                    <div className="flex items-center gap-0.5 mt-0.5 pr-1">
+                      {msg.sending ? (
+                        <span className="text-[9px] text-white/30">Sending…</span>
                       ) : (
-                        <div className="w-6 h-6" />
+                        <>
+                          <Check className="w-2.5 h-2.5 text-white/30" />
+                          <span className="text-[9px] text-white/30">Sent</span>
+                        </>
                       )}
                     </div>
                   )}
-                  <div
-                    className={`flex-1 min-w-0 px-3 py-1.5 rounded-2xl text-xs leading-relaxed ${msg.isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
-                    style={msg.isMe
-                      ? { background: 'var(--bolt-accent)', color: '#fff' }
-                      : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' }}
-                  >
-                    <p>{msg.content}</p>
-                    <p className="text-[10px] opacity-45 mt-0.5 text-right">{msg.timestamp}</p>
-                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })
+          })()}
           <div ref={bottomRef} />
         </div>
 
@@ -208,41 +226,58 @@ export default function GroupChatWindow({
                 No messages yet. Start the conversation!
               </p>
             )}
-            {safeMessages.map((msg, i) => {
-              const showMeta = !msg.isMe && isNewRun(i)
-              return (
-                <div key={msg.id} className={`flex flex-col w-full ${msg.isMe ? 'items-end' : 'items-start'}`}>
-                  {showMeta && (
-                    <div className="flex items-center gap-1.5 mb-0.5 ml-8">
-                      <span className="text-[10px] text-white/50">{msg.senderName}</span>
+            {(() => {
+              const myMsgs = safeMessages.filter((m) => m.isMe)
+              const lastMyMsgId = myMsgs[myMsgs.length - 1]?.id
+              return safeMessages.map((msg, i) => {
+                const showMeta = !msg.isMe && isNewRun(i)
+                const isLastMine = msg.isMe && msg.id === lastMyMsgId
+                return (
+                  <div key={msg.id} className={`flex flex-col w-full ${msg.isMe ? 'items-end' : 'items-start'}`}>
+                    {showMeta && (
+                      <div className="flex items-center gap-1.5 mb-0.5 ml-8">
+                        <span className="text-[10px] text-white/50">{msg.senderName}</span>
+                      </div>
+                    )}
+                    <div className={`flex items-end gap-1.5 max-w-[82%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                      {!msg.isMe && (
+                        <div className="flex-shrink-0 mb-1">
+                          {isNewRun(i) ? (
+                            <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center"
+                              style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
+                              <AvatarImage src={msg.senderAvatar} alt={msg.senderName} />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6" />
+                          )}
+                        </div>
+                      )}
+                      <div
+                        className={`flex-1 min-w-0 px-3 py-1.5 rounded-2xl text-xs leading-relaxed ${msg.isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
+                        style={msg.isMe
+                          ? { background: 'var(--bolt-accent)', color: '#fff' }
+                          : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' }}
+                      >
+                        <p>{msg.content}</p>
+                        <p className="text-[10px] opacity-45 mt-0.5 text-right">{msg.timestamp}</p>
+                      </div>
                     </div>
-                  )}
-                  <div className={`flex items-end gap-1.5 max-w-[82%] ${msg.isMe ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {!msg.isMe && (
-                      <div className="flex-shrink-0 mb-1">
-                        {isNewRun(i) ? (
-                          <div className="w-6 h-6 rounded-full overflow-hidden flex items-center justify-center"
-                            style={{ background: 'rgba(79,70,229,0.3)', border: '1px solid rgba(79,70,229,0.45)' }}>
-                            <AvatarImage src={msg.senderAvatar} alt={msg.senderName} />
-                          </div>
+                    {isLastMine && (
+                      <div className="flex items-center gap-0.5 mt-0.5 pr-1">
+                        {msg.sending ? (
+                          <span className="text-[9px] text-white/30">Sending…</span>
                         ) : (
-                          <div className="w-6 h-6" />
+                          <>
+                            <Check className="w-2.5 h-2.5 text-white/30" />
+                            <span className="text-[9px] text-white/30">Sent</span>
+                          </>
                         )}
                       </div>
                     )}
-                    <div
-                      className={`flex-1 min-w-0 px-3 py-1.5 rounded-2xl text-xs leading-relaxed ${msg.isMe ? 'rounded-br-sm' : 'rounded-bl-sm'}`}
-                      style={msg.isMe
-                        ? { background: 'var(--bolt-accent)', color: '#fff' }
-                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.85)' }}
-                    >
-                      <p>{msg.content}</p>
-                      <p className="text-[10px] opacity-45 mt-0.5 text-right">{msg.timestamp}</p>
-                    </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })
+            })()}
             <div ref={bottomRef} />
           </div>
 

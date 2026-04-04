@@ -148,7 +148,9 @@ export default function ChatWindow({ member, messages, minimized, myId, muted, o
                   </div>
                   {isLastMine && (
                     <div className="flex items-center gap-0.5 mt-0.5 pr-1">
-                      {readByPeer ? (
+                      {msg.sending ? (
+                        <span className="text-[9px] text-white/30">Sending…</span>
+                      ) : readByPeer ? (
                         <>
                           <CheckCheck className="w-2.5 h-2.5 text-indigo-400" />
                           <span className="text-[9px] text-indigo-400">Read</span>

@@ -45,6 +45,7 @@ export type ChatMessage = {
   content: string
   timestamp: string
   read: boolean
+  sending?: boolean
 }
 
 export type Conversation = {

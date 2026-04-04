@@ -86,6 +86,19 @@ export default function GroupChatPanel() {
     if (!teamId || !profile || isSending) return
     setIsSending(true)
 
+    const tempId = `temp-${Date.now()}`
+    const optimistic: GroupMessage = {
+      id:           tempId,
+      senderId:     profile.id,
+      senderName:   profile.name,
+      senderAvatar: profile.avatar ?? '',
+      content,
+      timestamp:    new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      isMe:         true,
+      sending:      true,
+    }
+    setMessages((prev) => [...prev, optimistic])
+
     try {
       const res = await fetch('/api/team-chat', {
         method:  'POST',
@@ -93,35 +106,29 @@ export default function GroupChatPanel() {
         body:    JSON.stringify({ content }),
       })
 
-      if (!res.ok) return
+      if (!res.ok) {
+        setMessages((prev) => prev.filter((m) => m.id !== tempId))
+        return
+      }
 
       const msg: GroupMessage = await res.json()
 
-      // Append own message immediately
       setMessages((prev) => {
-        if (prev.find((m) => m.id === msg.id)) return prev
-        return [...prev, msg]
+        if (prev.find((m) => m.id === msg.id)) return prev.filter((m) => m.id !== tempId)
+        return prev.map((m) => m.id === tempId ? msg : m)
       })
 
       // Broadcast to other team members
       const supabase = createClient()
       const ch = supabase.channel(`team-chat-${teamId}`)
-      ch.subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          ch.send({
-            type:    'broadcast',
-            event:   'group_message',
-            payload: {
-              id:           msg.id,
-              senderId:     profile.id,
-              senderName:   profile.name,
-              senderAvatar: profile.avatar ?? '',
-              content:      msg.content,
-              timestamp:    msg.timestamp,
-              isMe:         false,
-            },
-          }).finally(() => { supabase.removeChannel(ch) })
-        }
+      ch.httpSend('group_message', {
+        id:           msg.id,
+        senderId:     profile.id,
+        senderName:   profile.name,
+        senderAvatar: profile.avatar ?? '',
+        content:      msg.content,
+        timestamp:    msg.timestamp,
+        isMe:         false,
       })
     } finally {
       setIsSending(false)

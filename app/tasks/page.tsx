@@ -184,19 +184,11 @@ export default function TasksPage() {
           // Broadcast notification to the assigned employee for guaranteed real-time delivery
           if (memberId) {
             const ch = supabase.channel(`notifs-${memberId}`)
-            ch.subscribe((status: string) => {
-              if (status === 'SUBSCRIBED') {
-                ch.send({
-                  type:    'broadcast',
-                  event:   'new_notification',
-                  payload: {
-                    id:          `bc-${Date.now()}-${memberId}`,
-                    title:       `New task assigned: ${form.title}`,
-                    description: `${profile?.name ?? 'Manager'} assigned you a task due ${form.date}.`,
-                    type:        'task',
-                  },
-                }).finally(() => supabase.removeChannel(ch))
-              }
+            ch.httpSend('new_notification', {
+              id:          `bc-${Date.now()}-${memberId}`,
+              title:       `New task assigned: ${form.title}`,
+              description: `${profile?.name ?? 'Manager'} assigned you a task due ${form.date}.`,
+              type:        'task',
             })
           }
         }

@@ -140,32 +140,34 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
     if (!text) return
     setInput('')
     setReadByPeer(false)
+    const tempId = `temp-${Date.now()}`
+    const optimistic: ChatMessage = {
+      id:        tempId,
+      senderId:  profile?.id ?? 'me',
+      content:   text,
+      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false }),
+      read:      false,
+      sending:   true,
+    }
+    setMessages((prev) => [...prev, optimistic])
     const res = await fetch('/api/messages', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ receiver_id: member.id, content: text }),
     })
     const msg: ChatMessage = await res.json()
-    setMessages((prev) => [...prev, msg])
+    setMessages((prev) => prev.map((m) => m.id === tempId ? msg : m))
 
     // Broadcast to receiver's inbox channel so their ChatTabs fires sound + toast
     if (profile?.id && member.id !== profile.id) {
       const supabase = createClient()
       const ch = supabase.channel(`inbox-${member.id}`)
-      ch.subscribe((status: string) => {
-        if (status === 'SUBSCRIBED') {
-          ch.send({
-            type:    'broadcast',
-            event:   'new_message',
-            payload: {
-              id:          (msg as any).id,
-              sender_id:   profile.id,
-              receiver_id: member.id,
-              content:     text,
-              created_at:  new Date().toISOString(),
-            },
-          }).finally(() => { supabase.removeChannel(ch) })
-        }
+      ch.httpSend('new_message', {
+        id:          (msg as any).id,
+        sender_id:   profile.id,
+        receiver_id: member.id,
+        content:     text,
+        created_at:  new Date().toISOString(),
       })
     }
   }
@@ -243,7 +245,9 @@ export default function ChatPanel({ member, onClose }: ChatPanelProps) {
                 </div>
                 {isLastMine && (
                   <div className="flex items-center gap-0.5 mt-0.5 pr-1">
-                    {readByPeer ? (
+                    {msg.sending ? (
+                      <span className="text-[10px] text-white/30">Sending…</span>
+                    ) : readByPeer ? (
                       <>
                         <CheckCheck className="w-3 h-3 text-indigo-400" />
                         <span className="text-[10px] text-indigo-400">Read</span>
