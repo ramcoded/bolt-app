@@ -122,15 +122,21 @@ export default function NavBar() {
                 <button
                   onClick={() => canTimeIn && setModal('in')}
                   disabled={!canTimeIn}
-                  className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
+                  className="flex items-center gap-1.5 px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
                     canTimeIn
-                      ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }
+                      ? { background: '#16a34a', color: '#fff', boxShadow: '0 0 12px rgba(22,163,74,0.4)', cursor: 'pointer' }
                       : timedIn
-                        ? { background: '#16a34a', color: '#fff', boxShadow: '0 0 12px rgba(22,163,74,0.4)', cursor: 'not-allowed' }
+                        ? { background: 'rgba(22,163,74,0.15)', color: 'rgba(134,239,172,0.5)', cursor: 'not-allowed' }
                         : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
                   }
                 >
+                  {timedIn && (
+                    <span
+                      className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0"
+                      style={{ background: '#4ade80' }}
+                    />
+                  )}
                   Time In
                 </button>
                 <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
@@ -140,7 +146,7 @@ export default function NavBar() {
                   className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
                     canTimeOut
-                      ? { background: 'var(--bolt-accent)', color: '#fff', boxShadow: '0 0 12px rgba(79,70,229,0.4)', cursor: 'pointer' }
+                      ? { background: '#dc2626', color: '#fff', boxShadow: '0 0 12px rgba(220,38,38,0.4)', cursor: 'pointer' }
                       : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
                   }
                 >
