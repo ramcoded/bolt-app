@@ -19,7 +19,6 @@ function getAdmin() {
 export const metadata: Metadata = {
   title: 'BOLT',
   description: 'Team time tracking and collaboration',
-  icons: { icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }] },
 }
 
 // Tells Dark Reader the site is already dark — prevents it from injecting
