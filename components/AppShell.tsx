@@ -23,7 +23,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname  = usePathname()
 
   if (!user) {
-    return <main className="min-h-screen">{children}</main>
+    return <main className="min-h-screen" suppressHydrationWarning>{children}</main>
   }
 
   return (
