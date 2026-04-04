@@ -26,7 +26,14 @@ export default function NavBar() {
   const isManager = profile?.role === 'manager'
   const [mobileOpen, setMobileOpen] = useState(false)
   const [modal,      setModal]      = useState<'in' | 'out' | null>(null)
-  const { timedIn, clockIn, clockOut } = useTimeRecords()
+  const { records, timedIn, clockIn, clockOut } = useTimeRecords()
+
+  const todayStr = new Date().toLocaleDateString('en-CA') // YYYY-MM-DD
+  const todayRecord = records.find((r) => r.date === todayStr)
+  const hasTimedOutToday = todayRecord?.timeOut != null
+
+  const canTimeIn  = !timedIn && !hasTimedOutToday
+  const canTimeOut = timedIn
 
   const handleConfirm = () => {
     if (modal === 'in')  clockIn()
@@ -113,24 +120,28 @@ export default function NavBar() {
               {/* Time In / Time Out */}
               <div className="flex items-center rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
                 <button
-                  onClick={() => setModal('in')}
+                  onClick={() => canTimeIn && setModal('in')}
+                  disabled={!canTimeIn}
                   className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
-                    timedIn
-                      ? { background: '#16a34a', color: '#fff', boxShadow: '0 0 12px rgba(22,163,74,0.4)' }
-                      : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)' }
+                    canTimeIn
+                      ? { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)', cursor: 'pointer' }
+                      : timedIn
+                        ? { background: '#16a34a', color: '#fff', boxShadow: '0 0 12px rgba(22,163,74,0.4)', cursor: 'not-allowed' }
+                        : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
                   }
                 >
                   Time In
                 </button>
                 <div style={{ width: 1, height: 20, background: 'rgba(255,255,255,0.06)' }} />
                 <button
-                  onClick={() => setModal('out')}
+                  onClick={() => canTimeOut && setModal('out')}
+                  disabled={!canTimeOut}
                   className="px-2 sm:px-3 py-2 text-xs font-semibold transition-all duration-200"
                   style={
-                    !timedIn
-                      ? { background: 'var(--bolt-accent)', color: '#fff', boxShadow: '0 0 12px rgba(79,70,229,0.4)' }
-                      : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.5)' }
+                    canTimeOut
+                      ? { background: 'var(--bolt-accent)', color: '#fff', boxShadow: '0 0 12px rgba(79,70,229,0.4)', cursor: 'pointer' }
+                      : { background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }
                   }
                 >
                   Time Out
