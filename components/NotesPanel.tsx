@@ -53,7 +53,7 @@ export default function NotesPanel() {
       )}
 
       <div
-        className="fixed left-0 top-1/2 -translate-y-1/2 z-40 flex items-stretch"
+        className="fixed left-0 top-1/2 -translate-y-1/2 z-40 hidden sm:flex items-stretch"
         style={{ height: 'min(520px, 70vh)' }}
       >
         {/* Slide-out panel */}

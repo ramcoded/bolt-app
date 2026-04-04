@@ -142,7 +142,7 @@ export default function GroupChatPanel() {
         style={{
           background: 'rgba(255,255,255,0.03)',
           border:     '1px solid rgba(255,255,255,0.08)',
-          height:     '560px',
+          height:     'min(560px, calc(100svh - 8rem))',
         }}
       >
         <div className="flex items-center justify-center flex-1">
@@ -159,7 +159,7 @@ export default function GroupChatPanel() {
         style={{
           background: 'rgba(255,255,255,0.03)',
           border:     '1px solid rgba(255,255,255,0.08)',
-          height:     '560px',
+          height:     'min(560px, calc(100svh - 8rem))',
         }}
       >
         <div className="flex flex-col items-center justify-center flex-1 gap-3 px-6 text-center">

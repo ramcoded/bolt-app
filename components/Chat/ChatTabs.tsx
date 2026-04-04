@@ -384,43 +384,46 @@ export default function ChatTabs() {
   const totalOpenCount = openChats.length + (groupChatOpen ? 1 : 0)
 
   return (
-    <div className="fixed bottom-0 right-6 z-50 flex items-end gap-3">
+    <div className="fixed bottom-0 right-4 sm:right-6 z-50 flex items-end gap-3">
 
-      {/* Group chat floating window */}
+      {/* Group chat floating window — hidden on mobile when individual chats are open */}
       {groupChatOpen && !groupChatMinimized && teamInfo && (
-        <GroupChatWindow
-          teamId={teamInfo.teamId}
-          teamName={teamInfo.teamName}
-          memberCount={teamInfo.memberCount}
-          messages={groupMessages}
-          minimized={false}
-          myId={profile?.id ?? ''}
-          isSending={groupSending}
-          embedded={false}
-          onClose={() => setGroupChatOpen(false)}
-          onMinimize={() => setGroupChatMinimized(true)}
-          onSend={sendGroupMessage}
-        />
+        <div className={activeChats.length > 0 ? 'hidden sm:block' : ''}>
+          <GroupChatWindow
+            teamId={teamInfo.teamId}
+            teamName={teamInfo.teamName}
+            memberCount={teamInfo.memberCount}
+            messages={groupMessages}
+            minimized={false}
+            myId={profile?.id ?? ''}
+            isSending={groupSending}
+            embedded={false}
+            onClose={() => setGroupChatOpen(false)}
+            onMinimize={() => setGroupChatMinimized(true)}
+            onSend={sendGroupMessage}
+          />
+        </div>
       )}
 
-      {/* Active (non-minimized) individual chat windows */}
-      {activeChats.map((chat) => (
-        <ChatWindow
-          key={chat.member.id}
-          member={chat.member}
-          messages={chat.messages}
-          minimized={false}
-          myId={profile?.id}
-          muted={mutedIds.has(chat.member.id)}
-          onClose={() => closeChat(chat.member.id)}
-          onMinimize={() => toggleMin(chat.member.id)}
-          onSend={(content) => sendMessage(chat.member.id, content)}
-          onMute={(m) => toggleMute(chat.member.id, m)}
-        />
+      {/* Active (non-minimized) individual chat windows — on mobile only show last */}
+      {activeChats.map((chat, i) => (
+        <div key={chat.member.id} className={i < activeChats.length - 1 ? 'hidden sm:block' : ''}>
+          <ChatWindow
+            member={chat.member}
+            messages={chat.messages}
+            minimized={false}
+            myId={profile?.id}
+            muted={mutedIds.has(chat.member.id)}
+            onClose={() => closeChat(chat.member.id)}
+            onMinimize={() => toggleMin(chat.member.id)}
+            onSend={(content) => sendMessage(chat.member.id, content)}
+            onMute={(m) => toggleMute(chat.member.id, m)}
+          />
+        </div>
       ))}
 
       {/* FAB + minimized avatars + picker */}
-      <div className="relative flex-shrink-0 mb-6">
+      <div className="relative flex-shrink-0 mb-4 sm:mb-6">
 
         {/* Minimized chat avatars stacked above FAB */}
         {(minimizedChats.length > 0 || groupChatMinimized) && (
@@ -460,7 +463,7 @@ export default function ChatTabs() {
 
         {/* Team picker */}
         {pickerOpen && (
-          <div className="glass-dropdown w-64 animate-slide-up absolute bottom-16 right-0">
+          <div className="glass-dropdown w-64 max-w-[calc(100vw-2rem)] animate-slide-up absolute bottom-16 right-0">
             <div className="flex items-center justify-between px-3 py-2" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
               <p className="text-xs font-semibold text-white">Team</p>
               <button onClick={() => setPickerOpen(false)} className="p-1 rounded hover:bg-white/8 text-white/40 hover:text-white transition-colors">

@@ -43,7 +43,7 @@ export default function MemberBoard() {
   const offline = allMembers.filter((m) => !m.online)
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-12rem)]">
+    <div className="flex gap-4 h-[calc(100svh-10rem)] md:h-[calc(100vh-12rem)]">
       {/* Member list */}
       <div
         className={`flex-shrink-0 flex flex-col transition-all duration-300 ${
