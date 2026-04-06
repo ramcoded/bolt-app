@@ -17,7 +17,7 @@ function mapMember(m: any) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -34,20 +34,53 @@ export async function GET() {
       )
     : supabase
 
-  // Get current user's team
-  const { data: me } = await db
-    .from('profiles')
-    .select('team_id')
-    .eq('id', user.id)
-    .single()
+  const { searchParams } = new URL(request.url)
+  const requestedTeamId = searchParams.get('teamId')
 
-  if (!me?.team_id) return NextResponse.json([])
+  let teamId: string | null = null
+
+  if (requestedTeamId) {
+    // Verify the user belongs to that team
+    const { data: membership } = await db
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', requestedTeamId)
+      .maybeSingle()
+
+    if (!membership) return NextResponse.json([])
+    teamId = requestedTeamId
+  } else {
+    // Fall back to user's primary team
+    const { data: me } = await db
+      .from('profiles')
+      .select('team_id')
+      .eq('id', user.id)
+      .single()
+
+    if (!me?.team_id) return NextResponse.json([])
+    teamId = me.team_id
+  }
+
+  // Get all member IDs in this team via team_memberships
+  const { data: memberships, error: membershipsError } = await db
+    .from('team_memberships')
+    .select('user_id')
+    .eq('team_id', teamId)
+    .neq('user_id', user.id)
+
+  if (membershipsError) {
+    logError('team/GET memberships', membershipsError)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+
+  const memberIds = (memberships ?? []).map((m: any) => m.user_id)
+  if (memberIds.length === 0) return NextResponse.json([])
 
   const { data, error } = await db
     .from('profiles')
     .select('id, name, role, avatar, online, last_seen')
-    .neq('id', user.id)
-    .eq('team_id', me.team_id)
+    .in('id', memberIds)
     .order('name', { ascending: true })
     .limit(100)
 

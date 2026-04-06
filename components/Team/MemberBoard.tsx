@@ -8,7 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
 import ChatPanel from './ChatPanel'
 
-export default function MemberBoard() {
+export default function MemberBoard({ teamId }: { teamId?: string }) {
   const { profile } = useAuth()
   const onlineIds   = useOnlineIds()
   const [members,    setMembers]    = useState<TeamMember[]>([])
@@ -16,11 +16,12 @@ export default function MemberBoard() {
   const [loaded,     setLoaded]     = useState(false)
 
   useEffect(() => {
-    fetch('/api/team', { cache: 'no-store' })
+    const url = teamId ? `/api/team?teamId=${teamId}` : '/api/team'
+    fetch(url, { cache: 'no-store' })
       .then((r) => r.json())
       .then((data) => { if (Array.isArray(data)) setMembers(data) })
       .finally(() => setLoaded(true))
-  }, [])
+  }, [teamId])
 
   // Prepend current user as always-online (can't chat with yourself so no onClick)
   const self: TeamMember | null = profile

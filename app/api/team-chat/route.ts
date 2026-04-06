@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic'
 
 const postSchema = z.object({
   content: z.string().min(1).max(5000),
+  teamId:  z.string().uuid().optional(),
 })
 
 type RawMessage = {
@@ -40,7 +41,7 @@ function mapMessage(m: RawMessage, meId: string, profiles: Map<string, Profile>)
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -48,7 +49,10 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Get user's profile to find team_id and member count
+  const { searchParams } = new URL(request.url)
+  const requestedTeamId = searchParams.get('teamId')
+
+  // Get user's profile to find their team memberships
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('team_id')
@@ -59,16 +63,34 @@ export async function GET() {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
   }
 
-  if (!profile.team_id) {
+  // Determine which team to use
+  let teamId: string | null = null
+
+  if (requestedTeamId) {
+    // Verify user is a member of the requested team
+    const { data: membership } = await supabase
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', requestedTeamId)
+      .maybeSingle()
+
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
+    }
+    teamId = requestedTeamId
+  } else {
+    teamId = profile.team_id
+  }
+
+  if (!teamId) {
     return NextResponse.json({ teamId: null, messages: [] })
   }
 
-  const teamId = profile.team_id
-
   // Get member count
   const { count: memberCount } = await supabase
-    .from('profiles')
-    .select('id', { count: 'exact', head: true })
+    .from('team_memberships')
+    .select('user_id', { count: 'exact', head: true })
     .eq('team_id', teamId)
 
   // Fetch last 50 messages ordered ascending
@@ -86,23 +108,18 @@ export async function GET() {
 
   const msgs: RawMessage[] = (messages ?? []).reverse()
 
-  // Collect unique sender ids
+  // Collect unique sender ids and fetch profiles
   const senderIds = Array.from(new Set(msgs.map((m) => m.sender_id)))
-
-  // Fetch profiles for all senders
   const profileMap = new Map<string, Profile>()
   if (senderIds.length > 0) {
     const { data: profiles } = await supabase
       .from('profiles')
       .select('id, name, avatar')
       .in('id', senderIds)
-
-    for (const p of profiles ?? []) {
-      profileMap.set(p.id, p)
-    }
+    for (const p of profiles ?? []) profileMap.set(p.id, p)
   }
 
-  // Also fetch team name
+  // Fetch team name
   const { data: teamData } = await supabase
     .from('teams')
     .select('name')
@@ -111,9 +128,9 @@ export async function GET() {
 
   return NextResponse.json({
     teamId,
-    teamName: teamData?.name ?? 'Team',
+    teamName:    teamData?.name ?? 'Team',
     memberCount: memberCount ?? 0,
-    messages: msgs.map((m) => mapMessage(m, user.id, profileMap)),
+    messages:    msgs.map((m) => mapMessage(m, user.id, profileMap)),
   })
 }
 
@@ -138,7 +155,7 @@ export async function POST(request: Request) {
 
   const { content } = result.data
 
-  // Get user's team_id
+  // Get user's profile
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('team_id, name, avatar')
@@ -149,13 +166,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
   }
 
-  if (!profile.team_id) {
+  // Determine team to post to
+  let teamId: string | null = result.data.teamId ?? profile.team_id
+
+  if (result.data.teamId) {
+    // Verify membership
+    const { data: membership } = await supabase
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', result.data.teamId)
+      .maybeSingle()
+
+    if (!membership) {
+      return NextResponse.json({ error: 'Not a member of this team' }, { status: 403 })
+    }
+    teamId = result.data.teamId
+  }
+
+  if (!teamId) {
     return NextResponse.json({ error: 'Not in a team' }, { status: 400 })
   }
 
   const { data: inserted, error: insertError } = await supabase
     .from('team_messages')
-    .insert({ team_id: profile.team_id, sender_id: user.id, content })
+    .insert({ team_id: teamId, sender_id: user.id, content })
     .select()
     .single()
 

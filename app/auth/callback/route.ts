@@ -86,11 +86,14 @@ export async function GET(request: Request) {
       avatar,
       online:  true,
       team_id: teamId,
+      email:   user.email ?? null,
     })
 
     // Back-fill created_by now that profile exists
     if (teamId) {
       await admin.from('teams').update({ created_by: user.id }).eq('id', teamId)
+      // Seed team_memberships for the new manager
+      await admin.from('team_memberships').upsert({ user_id: user.id, team_id: teamId })
     }
 
     destination = role === 'manager' ? '/manager/dashboard' : '/'

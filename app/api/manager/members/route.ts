@@ -23,7 +23,7 @@ async function getManagerTeam(supabase: Awaited<ReturnType<typeof createClient>>
   return data
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -37,12 +37,38 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  if (!me.team_id) return NextResponse.json({ members: [] })
+  const admin = getAdmin()
+  const { searchParams } = new URL(request.url)
+  const requestedTeamId = searchParams.get('teamId')
 
-  const { data: profiles, error } = await supabase
+  let teamId: string | null = null
+  if (requestedTeamId) {
+    const { data: membership } = await admin
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', requestedTeamId)
+      .maybeSingle()
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    teamId = requestedTeamId
+  } else {
+    teamId = me.team_id
+  }
+
+  if (!teamId) return NextResponse.json({ members: [] })
+
+  const { data: memberships } = await admin
+    .from('team_memberships')
+    .select('user_id')
+    .eq('team_id', teamId)
+
+  const memberIds = (memberships ?? []).map((m: any) => m.user_id)
+  if (memberIds.length === 0) return NextResponse.json({ members: [] })
+
+  const { data: profiles, error } = await admin
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
-    .eq('team_id', me.team_id)
+    .in('id', memberIds)
     .order('name', { ascending: true })
 
   if (error) {
@@ -51,7 +77,6 @@ export async function GET() {
   }
 
   // Fetch auth users to determine invite status — only for this team's profiles
-  const admin = getAdmin()
   const profileIds = (profiles ?? []).map((p) => p.id)
   const authResults = await Promise.all(
     profileIds.map((id) => admin.auth.admin.getUserById(id).then((r) => r.data.user).catch(() => null))

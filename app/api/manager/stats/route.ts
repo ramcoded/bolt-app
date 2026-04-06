@@ -6,7 +6,7 @@ import { logError, logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -35,19 +35,51 @@ export async function GET() {
       )
     : supabase
 
-  if (!me.team_id) {
+  const { searchParams } = new URL(request.url)
+  const requestedTeamId = searchParams.get('teamId')
+
+  let teamId: string | null = null
+  if (requestedTeamId) {
+    const { data: membership } = await db
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', requestedTeamId)
+      .maybeSingle()
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    teamId = requestedTeamId
+  } else {
+    teamId = me.team_id
+  }
+
+  if (!teamId) {
     return NextResponse.json({
       summary: { totalEmployees: 0, totalOnline: 0, totalClockedIn: 0, totalTodayMins: 0, totalWeekMins: 0 },
       employees: [],
     })
   }
 
-  // All members in the same team
+  // Get all member IDs in this team via team_memberships
+  const { data: memberships } = await db
+    .from('team_memberships')
+    .select('user_id')
+    .eq('team_id', teamId)
+
+  const memberIds = (memberships ?? []).map((m: any) => m.user_id).filter((id: string) => id !== user.id)
+
+  if (memberIds.length === 0) {
+    return NextResponse.json({
+      summary: { totalEmployees: 0, totalOnline: 0, totalClockedIn: 0, totalTodayMins: 0, totalWeekMins: 0 },
+      employees: [],
+    })
+  }
+
+  // All members in this team (role=member only for stats)
   const { data: employees } = await db
     .from('profiles')
     .select('id, name, avatar, role, department, online, last_seen')
+    .in('id', memberIds)
     .eq('role', 'member')
-    .eq('team_id', me.team_id)
     .order('name', { ascending: true })
 
   // Today's time records for all employees

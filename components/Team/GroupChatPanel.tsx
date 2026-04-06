@@ -1,38 +1,65 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Users } from 'lucide-react'
+import { Users, ChevronDown, ChevronUp } from 'lucide-react'
 import GroupChatWindow, { type GroupMessage } from '@/components/Chat/GroupChatWindow'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/lib/auth-context'
 
-export default function GroupChatPanel() {
+interface GroupChatPanelProps {
+  /** Pre-set team id — if provided the panel won't fetch its own team */
+  initialTeamId?: string
+  /** Pre-set team name — used together with initialTeamId */
+  initialTeamName?: string
+  /** Pre-set member count */
+  initialMemberCount?: number
+}
+
+export default function GroupChatPanel({
+  initialTeamId,
+  initialTeamName,
+  initialMemberCount,
+}: GroupChatPanelProps = {}) {
   const { profile } = useAuth()
   const [messages,    setMessages]    = useState<GroupMessage[]>([])
-  const [teamId,      setTeamId]      = useState<string | null>(null)
-  const [teamName,    setTeamName]    = useState('Team')
-  const [memberCount, setMemberCount] = useState(0)
-  const [loading,     setLoading]     = useState(true)
+  const [teamId,      setTeamId]      = useState<string | null>(initialTeamId ?? null)
+  const [teamName,    setTeamName]    = useState(initialTeamName ?? 'Team')
+  const [memberCount, setMemberCount] = useState(initialMemberCount ?? 0)
+  const [loading,     setLoading]     = useState(!initialTeamId)
   const [noTeam,      setNoTeam]      = useState(false)
   const [isSending,   setIsSending]   = useState(false)
+  const [collapsed,   setCollapsed]   = useState(false)
   const channelRef = useRef<ReturnType<ReturnType<typeof createClient>['channel']> | null>(null)
 
   useEffect(() => {
-    fetch('/api/team-chat')
-      .then((r) => r.json())
-      .then((data) => {
-        if (!data.teamId) {
-          setNoTeam(true)
-          return
-        }
-        setTeamId(data.teamId)
-        setTeamName(data.teamName ?? 'Team')
-        setMemberCount(data.memberCount ?? 0)
-        setMessages(data.messages ?? [])
-      })
-      .catch(() => setNoTeam(true))
-      .finally(() => setLoading(false))
-  }, [])
+    if (initialTeamId) {
+      // Fetch messages for the provided team
+      fetch(`/api/team-chat?teamId=${initialTeamId}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.teamId) { setNoTeam(true); return }
+          setTeamId(data.teamId)
+          if (!initialTeamName) setTeamName(data.teamName ?? 'Team')
+          if (!initialMemberCount) setMemberCount(data.memberCount ?? 0)
+          setMessages(data.messages ?? [])
+        })
+        .catch(() => setNoTeam(true))
+        .finally(() => setLoading(false))
+    } else {
+      // No team provided — fetch default team
+      fetch('/api/team-chat')
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data.teamId) { setNoTeam(true); return }
+          setTeamId(data.teamId)
+          setTeamName(data.teamName ?? 'Team')
+          setMemberCount(data.memberCount ?? 0)
+          setMessages(data.messages ?? [])
+        })
+        .catch(() => setNoTeam(true))
+        .finally(() => setLoading(false))
+    }
+  }, [initialTeamId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Subscribe to realtime group messages
   useEffect(() => {
@@ -103,7 +130,7 @@ export default function GroupChatPanel() {
       const res = await fetch('/api/team-chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ content }),
+        body:    JSON.stringify({ content, teamId }),
       })
 
       if (!res.ok) {

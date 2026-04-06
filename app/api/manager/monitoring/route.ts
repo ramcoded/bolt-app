@@ -6,7 +6,7 @@ import { logInfo } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -25,10 +25,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  if (!me.team_id) {
-    return NextResponse.json({ members: [] })
-  }
-
   const db = process.env.SUPABASE_SERVICE_ROLE_KEY
     ? createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,14 +33,40 @@ export async function GET() {
       )
     : supabase
 
+  const { searchParams } = new URL(request.url)
+  const requestedTeamId = searchParams.get('teamId')
+
+  let teamId: string | null = null
+  if (requestedTeamId) {
+    const { data: membership } = await db
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', requestedTeamId)
+      .maybeSingle()
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    teamId = requestedTeamId
+  } else {
+    teamId = me.team_id
+  }
+
+  if (!teamId) return NextResponse.json({ members: [] })
+
+  const { data: memberships } = await db
+    .from('team_memberships')
+    .select('user_id')
+    .eq('team_id', teamId)
+
+  const memberIds = (memberships ?? []).map((m: any) => m.user_id).filter((id: string) => id !== user.id)
+  if (memberIds.length === 0) return NextResponse.json({ members: [] })
+
   const { data: profiles } = await db
     .from('profiles')
     .select('id, name, avatar, department, online, last_seen')
-    .eq('team_id', me.team_id)
+    .in('id', memberIds)
     .order('name', { ascending: true })
 
   const today = new Date().toISOString().slice(0, 10)
-  const memberIds = (profiles ?? []).map((p) => p.id)
 
   const { data: records } = await db
     .from('time_records')

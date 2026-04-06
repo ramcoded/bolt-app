@@ -9,7 +9,7 @@ import {
   Users, Clock, TrendingUp, Zap, ArrowLeft, RefreshCw,
   CheckCircle2, UserPlus, X, Shield, User, ChevronDown,
   Loader2, Trash2, CalendarDays, Pencil, Check,
-  LogIn, LogOut, Timer, Activity, Briefcase,
+  LogIn, LogOut, Timer, Activity, Briefcase, Plus,
 } from 'lucide-react'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
@@ -145,12 +145,22 @@ export default function ManagerDashboard() {
   const [teamNameInput, setTeamNameInput] = useState('')
   const [savingTeam,    setSavingTeam]    = useState(false)
 
+  // Teams (multi-team support)
+  const [managerTeams,     setManagerTeams]     = useState<{ id: string; name: string }[]>([])
+  const [selectedTeamId,   setSelectedTeamId]   = useState('')
+  const selectedTeamIdRef  = useRef('')
+  const [showCreateTeam,   setShowCreateTeam]   = useState(false)
+  const [createTeamName,   setCreateTeamName]   = useState('')
+  const [creatingTeam,     setCreatingTeam]     = useState(false)
+  const [createTeamError,  setCreateTeamError]  = useState('')
+
   // Invite
   const [showInvite,    setShowInvite]    = useState(false)
-  const [inviteForm,    setInviteForm]    = useState({ email: '', name: '', role: 'member' as 'manager' | 'member', department: '' })
+  const [inviteForm,    setInviteForm]    = useState({ email: '', name: '', role: 'member' as 'manager' | 'member', department: '', teamId: '' })
   const [inviting,      setInviting]      = useState(false)
   const [inviteError,   setInviteError]   = useState('')
   const [inviteSuccess, setInviteSuccess] = useState(false)
+  const [inviteExisting, setInviteExisting] = useState(false)
 
   // Delete
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
@@ -176,7 +186,8 @@ export default function ManagerDashboard() {
   const loadStats = useCallback(async () => {
     setStatsLoading(true)
     try {
-      const res = await fetch('/api/manager/stats')
+      const tid = selectedTeamIdRef.current
+      const res = await fetch(tid ? `/api/manager/stats?teamId=${tid}` : '/api/manager/stats')
       const d   = await res.json()
       setSummary(d.summary ?? null)
       setLastRefresh(new Date())
@@ -188,9 +199,11 @@ export default function ManagerDashboard() {
   const loadMembers = useCallback(async () => {
     setDataLoading(true)
     try {
+      const tid = selectedTeamIdRef.current
+      const qs  = tid ? `?teamId=${tid}` : ''
       const [adminRes, monRes] = await Promise.all([
-        fetch('/api/manager/members'),
-        fetch('/api/manager/monitoring'),
+        fetch(`/api/manager/members${qs}`),
+        fetch(`/api/manager/monitoring${qs}`),
       ])
       const adminData = await adminRes.json()
       const monData   = await monRes.json()
@@ -223,20 +236,27 @@ export default function ManagerDashboard() {
     }
   }, [])
 
-  const loadTeamName = useCallback(async () => {
-    const res = await fetch('/api/team/name')
-    const d   = await res.json()
-    setTeamName(d.name ?? null)
+  const loadTeams = useCallback(async () => {
+    const res  = await fetch('/api/teams')
+    const data = await res.json()
+    const list = data.teams ?? []
+    setManagerTeams(list)
+    if (list[0] && !selectedTeamIdRef.current) {
+      selectedTeamIdRef.current = list[0].id
+      setSelectedTeamId(list[0].id)
+      setTeamName(list[0].name)
+    }
+    setInviteForm((f) => ({ ...f, teamId: f.teamId || list[0]?.id || '' }))
   }, [])
 
   useEffect(() => {
     loadStats()
     loadMembers()
-    loadTeamName()
+    loadTeams()
     const statsId = setInterval(loadStats, 30_000)
     const chartId = setInterval(() => setChartTick((t) => t + 1), 60_000)
     return () => { clearInterval(statsId); clearInterval(chartId) }
-  }, [loadStats, loadMembers, loadTeamName])
+  }, [loadStats, loadMembers, loadTeams])
 
   /* ── Real-time subscriptions ──────────────────────── */
 
@@ -245,7 +265,8 @@ export default function ManagerDashboard() {
   // Supabase UPDATE events omit unchanged columns (e.g. user_id) unless the
   // table has REPLICA IDENTITY FULL — making direct payload patching unreliable.
   const refetchTimeData = useCallback(async () => {
-    const res = await fetch('/api/manager/monitoring')
+    const tid = selectedTeamIdRef.current
+    const res = await fetch(tid ? `/api/manager/monitoring?teamId=${tid}` : '/api/manager/monitoring')
     if (!res.ok) return
     const json = await res.json()
     const timeMap = new Map((json.members ?? []).map((m: any) => [m.id, m]))
@@ -305,28 +326,74 @@ export default function ManagerDashboard() {
     if (!teamNameInput.trim()) return
     setSavingTeam(true)
     try {
+      const body: Record<string, string> = { name: teamNameInput.trim() }
+      if (selectedTeamId) body.teamId = selectedTeamId
       const res = await fetch('/api/team/name', {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: teamNameInput.trim() }),
+        body: JSON.stringify(body),
       })
-      if (res.ok) { setTeamName(teamNameInput.trim()); setEditingTeam(false) }
+      if (res.ok) {
+        const newName = teamNameInput.trim()
+        setTeamName(newName)
+        setManagerTeams((prev) => prev.map((t) => t.id === selectedTeamId ? { ...t, name: newName } : t))
+        setEditingTeam(false)
+      }
     } finally { setSavingTeam(false) }
+  }
+
+  const handleCreateTeam = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!createTeamName.trim()) return
+    setCreatingTeam(true); setCreateTeamError('')
+    try {
+      const res  = await fetch('/api/teams', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: createTeamName.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setCreateTeamError(data.error ?? 'Failed to create team'); return }
+      setManagerTeams((prev) => [...prev, data.team])
+      selectedTeamIdRef.current = data.team.id
+      setSelectedTeamId(data.team.id)
+      setTeamName(data.team.name)
+      loadStats()
+      loadMembers()
+      setCreateTeamName('')
+      setShowCreateTeam(false)
+      setInviteForm((f) => ({ ...f, teamId: data.team.id }))
+    } finally { setCreatingTeam(false) }
+  }
+
+  const handleTeamSelect = (teamId: string) => {
+    selectedTeamIdRef.current = teamId
+    setSelectedTeamId(teamId)
+    const team = managerTeams.find((t) => t.id === teamId)
+    if (team) setTeamName(team.name)
+    loadStats()
+    loadMembers()
   }
 
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault()
-    setInviting(true); setInviteError(''); setInviteSuccess(false)
+    setInviting(true); setInviteError(''); setInviteSuccess(false); setInviteExisting(false)
     try {
       const res  = await fetch('/api/manager/invite', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(inviteForm),
+        body: JSON.stringify({
+          email:      inviteForm.email,
+          name:       inviteForm.name,
+          role:       inviteForm.role,
+          department: inviteForm.department || null,
+          teamId:     inviteForm.teamId || undefined,
+        }),
       })
       const data = await res.json()
       if (!res.ok) { setInviteError(data.error ?? 'Something went wrong'); return }
+      setInviteExisting(!!data.existing)
       setInviteSuccess(true)
-      setInviteForm({ email: '', name: '', role: 'member', department: '' })
+      setInviteForm((f) => ({ ...f, email: '', name: '', role: 'member', department: '' }))
       loadMembers()
-      setTimeout(() => { setShowInvite(false); setInviteSuccess(false) }, 2000)
+      setTimeout(() => { setShowInvite(false); setInviteSuccess(false); setInviteExisting(false) }, 2500)
     } finally { setInviting(false) }
   }
 
@@ -424,7 +491,7 @@ export default function ManagerDashboard() {
             <h1 className="text-2xl font-bold text-white">Team Overview</h1>
             <p className="text-sm text-white/35 mt-0.5">Live attendance &amp; team management · {today}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             {editingTeam ? (
               <>
                 <input autoFocus value={teamNameInput}
@@ -450,8 +517,42 @@ export default function ManagerDashboard() {
                 <Pencil className="w-3 h-3 opacity-40 group-hover:opacity-100 transition-opacity" />
               </button>
             )}
+            {/* Create new team button */}
+            <button
+              onClick={() => { setShowCreateTeam(true); setCreateTeamName(''); setCreateTeamError('') }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-white/50 hover:text-white transition-all"
+              style={{ background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)' }}
+            >
+              <Plus className="w-3.5 h-3.5" />New Team
+            </button>
           </div>
         </div>
+
+        {/* Team Tabs — shown when manager has multiple teams */}
+        {managerTeams.length > 1 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {managerTeams.map((team) => (
+              <button
+                key={team.id}
+                onClick={() => handleTeamSelect(team.id)}
+                className={`px-4 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                  selectedTeamId === team.id
+                    ? ''
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/6'
+                }`}
+                style={selectedTeamId === team.id ? {
+                  background: 'rgba(79,70,229,0.2)',
+                  border: '1px solid rgba(99,102,241,0.45)',
+                  color: '#a5b4fc',
+                } : {
+                  border: '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                {team.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Summary cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
@@ -755,6 +856,50 @@ export default function ManagerDashboard() {
         </p>
       </div>
 
+      {/* Create Team modal */}
+      {showCreateTeam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)' }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowCreateTeam(false) }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5"
+            style={{ background: '#13131a', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-semibold text-white">Create New Team</h3>
+                <p className="text-xs text-white/35 mt-0.5">Give your new team a name</p>
+              </div>
+              <button onClick={() => setShowCreateTeam(false)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/8 transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleCreateTeam} className="space-y-4">
+              {createTeamError && (
+                <div className="px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#f87171' }}>
+                  {createTeamError}
+                </div>
+              )}
+              <div>
+                <label className="block text-xs text-white/50 mb-1.5">Team name</label>
+                <input autoFocus required type="text" placeholder="e.g. Design Team"
+                  value={createTeamName}
+                  onChange={(e) => setCreateTeamName(e.target.value)}
+                  maxLength={100}
+                  className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+              </div>
+              <button type="submit" disabled={creatingTeam || !createTeamName.trim()}
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+                style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', boxShadow: '0 4px 16px rgba(79,70,229,0.4)' }}>
+                {creatingTeam ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                {creatingTeam ? 'Creating…' : 'Create Team'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Invite modal */}
       {showInvite && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -764,8 +909,8 @@ export default function ManagerDashboard() {
             style={{ background: '#13131a', border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-base font-semibold text-white">Invite New Member</h3>
-                <p className="text-xs text-white/35 mt-0.5">They'll receive an email to set their password</p>
+                <h3 className="text-base font-semibold text-white">Add Member to Team</h3>
+                <p className="text-xs text-white/35 mt-0.5">New accounts get an email invite · existing accounts are added instantly</p>
               </div>
               <button onClick={() => setShowInvite(false)}
                 className="w-7 h-7 rounded-lg flex items-center justify-center text-white/40 hover:text-white hover:bg-white/8 transition-all">
@@ -777,7 +922,9 @@ export default function ManagerDashboard() {
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium"
                 style={{ background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.25)', color: '#4ade80' }}>
                 <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                Invite sent! The member will receive an email shortly.
+                {inviteExisting
+                  ? 'Existing account added to team successfully.'
+                  : 'Invite sent! The member will receive an email shortly.'}
               </div>
             ) : (
               <form onSubmit={handleInvite} className="space-y-4">
@@ -788,6 +935,20 @@ export default function ManagerDashboard() {
                   </div>
                 )}
                 <div className="space-y-3">
+                  {/* Team selector — visible when manager has multiple teams */}
+                  {managerTeams.length > 1 && (
+                    <div>
+                      <label className="block text-xs text-white/50 mb-1.5">Add to team</label>
+                      <select value={inviteForm.teamId}
+                        onChange={(e) => setInviteForm((f) => ({ ...f, teamId: e.target.value }))}
+                        className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                        style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        {managerTeams.map((t) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs text-white/50 mb-1.5">Full name</label>
                     <input required type="text" placeholder="Jane Smith" value={inviteForm.name}
@@ -801,6 +962,7 @@ export default function ManagerDashboard() {
                       onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
                       className="w-full px-3 py-2.5 rounded-xl text-sm text-white placeholder-white/25 outline-none"
                       style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }} />
+                    <p className="text-[11px] text-white/25 mt-1">Existing accounts are added directly — no email sent.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
@@ -826,7 +988,7 @@ export default function ManagerDashboard() {
                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold text-white transition-opacity disabled:opacity-60"
                   style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', boxShadow: '0 4px 16px rgba(79,70,229,0.4)' }}>
                   {inviting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserPlus className="w-4 h-4" />}
-                  {inviting ? 'Sending invite…' : 'Send Invite'}
+                  {inviting ? 'Processing…' : 'Add to Team'}
                 </button>
               </form>
             )}

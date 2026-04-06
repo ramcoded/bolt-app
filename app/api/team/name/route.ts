@@ -16,7 +16,8 @@ function getAdmin() {
 }
 
 const patchSchema = z.object({
-  name: z.string().min(1).max(100).trim(),
+  name:   z.string().min(1).max(100).trim(),
+  teamId: z.string().uuid().optional(),
 })
 
 export async function GET() {
@@ -62,7 +63,6 @@ export async function PATCH(request: Request) {
     logInfo('team/name/PATCH 403', 'Forbidden: not a manager')
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
-  if (!profile?.team_id) return NextResponse.json({ error: 'No team found' }, { status: 404 })
 
   const raw = await request.json().catch(() => null)
   const result = patchSchema.safeParse(raw)
@@ -71,10 +71,26 @@ export async function PATCH(request: Request) {
   }
 
   const admin = getAdmin()
+
+  let teamId = profile.team_id
+  if (result.data.teamId) {
+    // Verify manager belongs to the requested team
+    const { data: membership } = await admin
+      .from('team_memberships')
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('team_id', result.data.teamId)
+      .maybeSingle()
+    if (!membership) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    teamId = result.data.teamId
+  }
+
+  if (!teamId) return NextResponse.json({ error: 'No team found' }, { status: 404 })
+
   const { error } = await admin
     .from('teams')
     .update({ name: result.data.name })
-    .eq('id', profile.team_id)
+    .eq('id', teamId)
 
   if (error) {
     logError('team/name/PATCH', error)
