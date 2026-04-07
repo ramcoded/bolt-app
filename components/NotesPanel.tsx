@@ -54,47 +54,47 @@ export default function NotesPanel() {
 
       <div
         className="fixed left-0 top-1/2 -translate-y-1/2 z-40 hidden sm:flex items-stretch"
-        style={{ height: 'min(520px, 70vh)' }}
+        style={{ height: 'min(400px, 60vh)' }}
       >
         {/* Slide-out panel */}
         <div
           className="flex flex-col overflow-hidden transition-all duration-300 ease-in-out"
           style={{
-            width:         open ? 280 : 0,
+            width:         open ? 240 : 0,
             opacity:       open ? 1 : 0,
-            background:    'rgba(10,10,20,0.97)',
-            borderRight:   '1px solid rgba(255,255,255,0.08)',
-            borderTop:     '1px solid rgba(255,255,255,0.08)',
-            borderBottom:  '1px solid rgba(255,255,255,0.08)',
-            borderRadius:  '0 12px 12px 0',
-            boxShadow:     '4px 0 32px rgba(0,0,0,0.5)',
-            backdropFilter:'blur(24px)',
+            background:    'rgba(10,10,20,0.95)',
+            borderRight:   '1px solid rgba(255,255,255,0.06)',
+            borderTop:     '1px solid rgba(255,255,255,0.06)',
+            borderBottom:  '1px solid rgba(255,255,255,0.06)',
+            borderRadius:  '0 10px 10px 0',
+            boxShadow:     '4px 0 20px rgba(0,0,0,0.35)',
+            backdropFilter:'blur(20px)',
             pointerEvents: open ? 'auto' : 'none',
           }}
         >
           {/* Header */}
           <div
-            className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-            style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}
+            className="flex items-center justify-between px-3 py-2 flex-shrink-0"
+            style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}
           >
-            <div className="flex items-center gap-2">
-              <StickyNote className="w-3.5 h-3.5" style={{ color: '#f59e0b' }} />
-              <span className="text-xs font-semibold text-white/80">My Notes</span>
+            <div className="flex items-center gap-1.5">
+              <StickyNote className="w-3 h-3" style={{ color: 'rgba(245,158,11,0.6)' }} />
+              <span className="text-[11px] font-medium text-white/50">Notes</span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               {status === 'saving' && (
-                <span className="text-[10px] text-white/30 flex items-center gap-1">
-                  <Save className="w-3 h-3 animate-pulse" /> Saving…
+                <span className="text-[9px] text-white/25 flex items-center gap-1">
+                  <Save className="w-2.5 h-2.5 animate-pulse" /> saving
                 </span>
               )}
               {status === 'saved' && (
-                <span className="text-[10px] text-green-400/70">Saved</span>
+                <span className="text-[9px] text-green-400/50">saved</span>
               )}
               <button
                 onClick={() => setOpen(false)}
-                className="p-1 rounded-lg text-white/25 hover:text-white hover:bg-white/8 transition-colors"
+                className="p-0.5 rounded text-white/20 hover:text-white/50 transition-colors"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function NotesPanel() {
             value={content}
             onChange={e => handleChange(e.target.value)}
             placeholder="Write anything…"
-            className="flex-1 w-full px-4 py-3 text-sm text-white/70 bg-transparent resize-none outline-none leading-relaxed placeholder-white/15"
+            className="flex-1 w-full px-3 py-2.5 text-xs text-white/60 bg-transparent resize-none outline-none leading-relaxed placeholder-white/15"
             style={{ fontFamily: 'inherit' }}
           />
         </div>
@@ -114,25 +114,19 @@ export default function NotesPanel() {
           onClick={() => setOpen(v => !v)}
           className="flex-shrink-0 flex items-center justify-center transition-all duration-200"
           style={{
-            width:        28,
-            background:   open ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.12)',
-            border:       '1px solid rgba(245,158,11,0.3)',
-            borderLeft:   open ? 'none' : '1px solid rgba(245,158,11,0.3)',
-            borderRadius: open ? '0 8px 8px 0' : '0 8px 8px 0',
-            boxShadow:    '2px 0 12px rgba(0,0,0,0.3)',
+            width:        18,
+            background:   open ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.03)',
+            border:       '1px solid rgba(255,255,255,0.07)',
+            borderLeft:   open ? 'none' : '1px solid rgba(255,255,255,0.07)',
+            borderRadius: '0 6px 6px 0',
+            boxShadow:    '2px 0 8px rgba(0,0,0,0.2)',
             cursor:       'pointer',
           }}
         >
-          <span
-            className="text-[10px] font-bold tracking-widest select-none"
-            style={{
-              color:     '#f59e0b',
-              writingMode: 'vertical-rl',
-              transform: 'rotate(180deg)',
-            }}
-          >
-            NOTES
-          </span>
+          <StickyNote
+            className="w-2.5 h-2.5"
+            style={{ color: open ? 'rgba(245,158,11,0.5)' : 'rgba(255,255,255,0.2)' }}
+          />
         </button>
       </div>
     </>

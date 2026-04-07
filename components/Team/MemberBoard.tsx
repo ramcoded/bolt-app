@@ -1,19 +1,40 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MessageCircle } from 'lucide-react'
+import { MessageCircle, Users } from 'lucide-react'
 import type { TeamMember } from '@/lib/mock-data'
 import AvatarImage from '@/components/AvatarImage'
 import { useAuth } from '@/lib/auth-context'
 import { useOnlineIds } from '@/lib/presence-context'
 import ChatPanel from './ChatPanel'
 
-export default function MemberBoard({ teamId }: { teamId?: string }) {
+interface MemberBoardProps {
+  teamId?: string
+  /** Nav-mode: called when a member row is clicked instead of opening internal chat */
+  onSelectMember?: (member: TeamMember | null) => void
+  /** Nav-mode: highlight this member id as active */
+  selectedMemberId?: string | null
+  /** Nav-mode: called when the Group Chat button is clicked */
+  onSelectGroup?: () => void
+  /** Nav-mode: highlight the Group Chat button as active */
+  groupChatActive?: boolean
+}
+
+export default function MemberBoard({
+  teamId,
+  onSelectMember,
+  selectedMemberId,
+  onSelectGroup,
+  groupChatActive = false,
+}: MemberBoardProps) {
   const { profile } = useAuth()
   const onlineIds   = useOnlineIds()
   const [members,    setMembers]    = useState<TeamMember[]>([])
   const [activeChat, setActiveChat] = useState<TeamMember | null>(null)
   const [loaded,     setLoaded]     = useState(false)
+
+  // nav mode = parent controls selection
+  const navMode = !!onSelectMember
 
   useEffect(() => {
     const url = teamId ? `/api/team?teamId=${teamId}` : '/api/team'
@@ -23,7 +44,6 @@ export default function MemberBoard({ teamId }: { teamId?: string }) {
       .finally(() => setLoaded(true))
   }, [teamId])
 
-  // Prepend current user as always-online (can't chat with yourself so no onClick)
   const self: TeamMember | null = profile
     ? {
         id:       profile.id,
@@ -43,6 +63,102 @@ export default function MemberBoard({ teamId }: { teamId?: string }) {
   const online  = allMembers.filter((m) => m.online)
   const offline = allMembers.filter((m) => !m.online)
 
+  // ── NAV MODE ──────────────────────────────────────────────────────────────
+  if (navMode) {
+    return (
+      <div className="glass-card flex flex-col h-full overflow-y-auto">
+        {/* Group Chat button */}
+        {onSelectGroup && (
+          <div className="px-2 pt-3 pb-1">
+            <button
+              onClick={onSelectGroup}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-left"
+              style={
+                groupChatActive
+                  ? { background: 'rgba(99,102,241,0.18)', border: '1px solid rgba(99,102,241,0.35)' }
+                  : { border: '1px solid transparent' }
+              }
+              onMouseEnter={(e) => { if (!groupChatActive) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={(e) => { if (!groupChatActive) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+            >
+              <div
+                className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{
+                  background: groupChatActive
+                    ? 'linear-gradient(135deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.4) 100%)'
+                    : 'rgba(99,102,241,0.15)',
+                  border: '1px solid rgba(99,102,241,0.35)',
+                }}
+              >
+                <Users className="w-4 h-4 text-indigo-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white">Group Chat</p>
+                <p className="text-[11px] text-white/35">Team channel</p>
+              </div>
+              {groupChatActive && <MessageCircle className="w-3.5 h-3.5 flex-shrink-0 text-indigo-400" />}
+            </button>
+          </div>
+        )}
+
+        {/* Divider */}
+        {onSelectGroup && (
+          <div className="mx-4 my-1" style={{ height: 1, background: 'rgba(255,255,255,0.06)' }} />
+        )}
+
+        {/* Members header */}
+        <div className="sticky top-0 px-4 pt-3 pb-2"
+          style={{ background: 'linear-gradient(180deg, rgba(10,10,15,0.9) 80%, transparent 100%)' }}>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-white/30">
+            Members · {allMembers.length} total · {online.length} online
+          </p>
+        </div>
+
+        <div className="px-2 pb-4 space-y-4">
+          {online.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-green-400/60 px-2 mb-1">Online</p>
+              {online.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  active={selectedMemberId === member.id}
+                  onClick={member.id === profile?.id ? () => {} : () => onSelectMember(member)}
+                />
+              ))}
+            </div>
+          )}
+
+          {offline.length > 0 && (
+            <div>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-white/25 px-2 mb-1">Offline</p>
+              {offline.map((member) => (
+                <MemberRow
+                  key={member.id}
+                  member={member}
+                  active={selectedMemberId === member.id}
+                  onClick={() => onSelectMember(member)}
+                  dimmed
+                />
+              ))}
+            </div>
+          )}
+
+          {!loaded && otherMembers.length === 0 && (
+            <p className="text-xs text-white/25 text-center py-8">Loading team…</p>
+          )}
+          {loaded && otherMembers.length === 0 && (
+            <div className="text-center py-8 px-4">
+              <p className="text-xs font-medium text-white/35">No teammates yet</p>
+              <p className="text-[11px] text-white/20 mt-1">Team members will appear here once added by a manager</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ── STANDALONE MODE (original behaviour) ──────────────────────────────────
   return (
     <div className="flex gap-4 h-[calc(100svh-10rem)] md:h-[calc(100vh-12rem)]">
       {/* Member list */}

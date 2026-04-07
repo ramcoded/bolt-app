@@ -165,12 +165,8 @@ export default function GroupChatPanel({
   if (loading) {
     return (
       <div
-        className="rounded-2xl flex flex-col overflow-hidden"
-        style={{
-          background: 'rgba(255,255,255,0.03)',
-          border:     '1px solid rgba(255,255,255,0.08)',
-          height:     'min(560px, calc(100svh - 8rem))',
-        }}
+        className="rounded-2xl flex flex-col overflow-hidden h-full"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="flex items-center justify-center flex-1">
           <p className="text-xs text-white/30">Loading team chat…</p>
@@ -182,12 +178,8 @@ export default function GroupChatPanel({
   if (noTeam || !teamId) {
     return (
       <div
-        className="rounded-2xl flex flex-col overflow-hidden"
-        style={{
-          background: 'rgba(255,255,255,0.03)',
-          border:     '1px solid rgba(255,255,255,0.08)',
-          height:     'min(560px, calc(100svh - 8rem))',
-        }}
+        className="rounded-2xl flex flex-col overflow-hidden h-full"
+        style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}
       >
         <div className="flex flex-col items-center justify-center flex-1 gap-3 px-6 text-center">
           <div
@@ -209,15 +201,18 @@ export default function GroupChatPanel({
       style={{
         background: 'rgba(255,255,255,0.03)',
         border:     '1px solid rgba(255,255,255,0.08)',
-        height:     '560px',
+        height:     collapsed ? 'auto' : '100%',
       }}
     >
-      {/* Panel header */}
-      <div
-        className="flex items-center gap-2 px-4 py-3 flex-shrink-0"
+      {/* Panel header — click to collapse/expand */}
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        className="flex items-center gap-2 px-4 py-3 flex-shrink-0 w-full text-left"
         style={{
-          borderBottom: '1px solid rgba(255,255,255,0.06)',
+          borderBottom: collapsed ? 'none' : '1px solid rgba(255,255,255,0.06)',
           background:   'rgba(99,102,241,0.06)',
+          cursor:       'pointer',
         }}
       >
         <div
@@ -243,20 +238,26 @@ export default function GroupChatPanel({
             {memberCount} members · Group Chat
           </p>
         </div>
-      </div>
+        {collapsed
+          ? <ChevronDown className="w-4 h-4 text-white/40 flex-shrink-0" />
+          : <ChevronUp   className="w-4 h-4 text-white/40 flex-shrink-0" />
+        }
+      </button>
 
-      {/* Chat window embedded */}
-      <GroupChatWindow
-        teamId={teamId}
-        teamName={teamName}
-        memberCount={memberCount}
-        messages={messages}
-        minimized={false}
-        myId={profile?.id ?? ''}
-        isSending={isSending}
-        embedded={true}
-        onSend={handleSend}
-      />
+      {/* Chat window embedded — hidden when collapsed */}
+      {!collapsed && (
+        <GroupChatWindow
+          teamId={teamId}
+          teamName={teamName}
+          memberCount={memberCount}
+          messages={messages}
+          minimized={false}
+          myId={profile?.id ?? ''}
+          isSending={isSending}
+          embedded={true}
+          onSend={handleSend}
+        />
+      )}
     </div>
   )
 }
